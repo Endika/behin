@@ -5,6 +5,7 @@ create table behin.notes (
   ciphertext bytea not null,
   iv bytea not null,
   auth_hash bytea not null,
+  gate_hash bytea not null,
   attempts int not null default 0,
   expires_at timestamptz not null
 );
@@ -18,6 +19,7 @@ create function behin.create_note(
   p_ciphertext text,
   p_iv text,
   p_auth_hash text,
+  p_gate_hash text,
   p_ttl_seconds int
 )
 returns uuid
@@ -29,6 +31,7 @@ declare
   v_ciphertext bytea;
   v_iv bytea;
   v_auth bytea;
+  v_gate bytea;
   v_id uuid;
 begin
   if p_ttl_seconds is null or p_ttl_seconds not in (600, 3600, 86400, 604800) then
@@ -62,32 +65,61 @@ begin
     raise exception 'invalid p_auth_hash: must be 32 bytes';
   end if;
 
+  begin
+    v_gate := decode(p_gate_hash, 'base64');
+  exception when others then
+    raise exception 'invalid p_gate_hash: not base64';
+  end;
+  if v_gate is null or length(v_gate) <> 32 then
+    raise exception 'invalid p_gate_hash: must be 32 bytes';
+  end if;
+
   if (select count(*) from behin.notes where expires_at > now()) >= 5000 then
     raise exception 'capacity reached';
   end if;
 
-  insert into behin.notes (ciphertext, iv, auth_hash, expires_at)
-  values (v_ciphertext, v_iv, v_auth, now() + make_interval(secs => p_ttl_seconds))
+  insert into behin.notes (ciphertext, iv, auth_hash, gate_hash, expires_at)
+  values (v_ciphertext, v_iv, v_auth, v_gate, now() + make_interval(secs => p_ttl_seconds))
   returning id into v_id;
 
   return v_id;
 end;
 $$;
 
--- The delete is the read: a note can be returned at most once, even under concurrency.
-create function behin.open_note(p_id uuid, p_auth text)
+-- A wrong gate (derived from the link key alone) never touches attempts, so
+-- knowing only the id can neither read nor burn a note. The delete is the read:
+-- a note can be returned at most once, even under concurrency.
+create function behin.open_note(p_id uuid, p_gate text, p_auth text)
 returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
+  v_gate_hash bytea;
   v_hash bytea;
+  v_locked uuid;
   v_ciphertext bytea;
   v_iv bytea;
   v_attempts int;
   v_remaining int;
 begin
+  begin
+    v_gate_hash := extensions.digest(decode(p_gate, 'base64'), 'sha256');
+  exception when others then
+    v_gate_hash := null;
+  end;
+
+  select id into v_locked
+  from behin.notes
+  where id = p_id and gate_hash = v_gate_hash and expires_at > now()
+  for update;
+
+  if not found then
+    delete from behin.notes where id = p_id and expires_at <= now();
+    return jsonb_build_object('status', 'gone');
+  end if;
+
   begin
     v_hash := extensions.digest(decode(p_auth, 'base64'), 'sha256');
   exception when others then
@@ -95,7 +127,7 @@ begin
   end;
 
   delete from behin.notes
-  where id = p_id and auth_hash = v_hash and expires_at > now()
+  where id = p_id and auth_hash = v_hash
   returning ciphertext, iv into v_ciphertext, v_iv;
 
   if found then
@@ -108,13 +140,8 @@ begin
 
   update behin.notes
   set attempts = attempts + 1
-  where id = p_id and expires_at > now()
+  where id = p_id
   returning attempts into v_attempts;
-
-  if not found then
-    delete from behin.notes where id = p_id and expires_at <= now();
-    return jsonb_build_object('status', 'gone');
-  end if;
 
   v_remaining := 5 - v_attempts;
   if v_remaining <= 0 then
@@ -125,9 +152,9 @@ begin
 end;
 $$;
 
-revoke all on function behin.create_note(text, text, text, int), behin.open_note(uuid, text)
+revoke all on function behin.create_note(text, text, text, text, int), behin.open_note(uuid, text, text)
   from public, authenticated, service_role;
-grant execute on function behin.create_note(text, text, text, int) to anon;
-grant execute on function behin.open_note(uuid, text) to anon;
+grant execute on function behin.create_note(text, text, text, text, int) to anon;
+grant execute on function behin.open_note(uuid, text, text) to anon;
 
 select cron.schedule('behin-expire', '*/5 * * * *', $$delete from behin.notes where expires_at < now()$$);

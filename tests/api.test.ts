@@ -8,6 +8,7 @@ const sealed = {
   ciphertext: toBase64(new Uint8Array(20).fill(1)),
   iv: toBase64(new Uint8Array(12).fill(2)),
   authHash: toBase64(new Uint8Array(32).fill(3)),
+  gateHash: toBase64(new Uint8Array(32).fill(4)),
 }
 
 type Call = { url: string; init: RequestInit }
@@ -49,6 +50,7 @@ describe('http api', () => {
       p_ciphertext: sealed.ciphertext,
       p_iv: sealed.iv,
       p_auth_hash: sealed.authHash,
+      p_gate_hash: sealed.gateHash,
       p_ttl_seconds: 3600,
     })
     expect(sent(calls).init.cache).toBe('no-store')
@@ -65,9 +67,13 @@ describe('http api', () => {
     for (const result of results) {
       const { calls, fetchFn } = recorder(() => json(result))
       const api = createHttpApi('https://x.supabase.co', 'anon', fetchFn)
-      expect(await api.open(ID, 'AUTH')).toEqual(result)
+      expect(await api.open(ID, 'GATE', 'AUTH')).toEqual(result)
       expect(sent(calls).url).toBe('https://x.supabase.co/rest/v1/rpc/open_note')
-      expect(JSON.parse(sent(calls).init.body as string)).toEqual({ p_id: ID, p_auth: 'AUTH' })
+      expect(JSON.parse(sent(calls).init.body as string)).toEqual({
+        p_id: ID,
+        p_gate: 'GATE',
+        p_auth: 'AUTH',
+      })
     }
   })
 
@@ -75,10 +81,10 @@ describe('http api', () => {
     const make = (respond: () => Response | Promise<Response>) =>
       createHttpApi('https://x', 'k', recorder(respond).fetchFn)
     const boom = () => Promise.reject(new TypeError('offline'))
-    await expect(make(boom).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
-    await expect(make(() => json({}, 503)).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make(boom).open(ID, 'g', 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make(() => json({}, 503)).open(ID, 'g', 'a')).rejects.toBeInstanceOf(NetworkError)
     await expect(
-      make(() => new Response('<html>', { status: 200 })).open(ID, 'a'),
+      make(() => new Response('<html>', { status: 200 })).open(ID, 'g', 'a'),
     ).rejects.toBeInstanceOf(NetworkError)
     await expect(
       make(() => json({ message: 'capacity reached' }, 400)).create(sealed, 600),
@@ -92,10 +98,12 @@ describe('http api', () => {
     const make = (body: unknown) =>
       createHttpApi('https://x', 'k', recorder(() => json(body)).fetchFn)
     await expect(make('not-a-uuid').create(sealed, 600)).rejects.toBeInstanceOf(NetworkError)
-    await expect(make({ status: 'maybe' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
-    await expect(make({ status: 'wrong' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
-    await expect(make({ status: 'ok', iv: 'i' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
-    await expect(make({ status: 'ok', ciphertext: 'c' }).open(ID, 'a')).rejects.toBeInstanceOf(
+    await expect(make({ status: 'maybe' }).open(ID, 'g', 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make({ status: 'wrong' }).open(ID, 'g', 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make({ status: 'ok', iv: 'i' }).open(ID, 'g', 'a')).rejects.toBeInstanceOf(
+      NetworkError,
+    )
+    await expect(make({ status: 'ok', ciphertext: 'c' }).open(ID, 'g', 'a')).rejects.toBeInstanceOf(
       NetworkError,
     )
     const html = createHttpApi(
@@ -103,36 +111,41 @@ describe('http api', () => {
       'k',
       recorder(() => new Response('<html>', { status: 400 })).fetchFn,
     )
-    await expect(html.open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(html.open(ID, 'g', 'a')).rejects.toBeInstanceOf(NetworkError)
   })
 
   it('error messages do not leak request data', async () => {
     const api = createHttpApi('https://x', 'secret-key', recorder(() => json({}, 400)).fetchFn)
-    const error = await api.open(ID, 'SECRETAUTH').then(
+    const error = await api.open(ID, 'SECRETGATE', 'SECRETAUTH').then(
       () => new Error('expected rejection'),
       (e: unknown) => e as Error,
     )
     expect(error.message).not.toContain('SECRETAUTH')
+    expect(error.message).not.toContain('SECRETGATE')
     expect(error.message).not.toContain('secret-key')
   })
 })
 
 describe('fake api', () => {
   const auth = toBase64(new Uint8Array(32).fill(7))
+  const gate = toBase64(new Uint8Array(32).fill(8))
+  async function hashOf(fill: number) {
+    const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(32).fill(fill))
+    return toBase64(new Uint8Array(digest))
+  }
   async function stored(api: ReturnType<typeof createFakeApi>, ttl: TtlSeconds = 3600) {
-    const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(32).fill(7))
-    return api.create({ ...sealed, authHash: toBase64(new Uint8Array(digest)) }, ttl)
+    return api.create({ ...sealed, authHash: await hashOf(7), gateHash: await hashOf(8) }, ttl)
   }
 
   it('returns the note once, then gone', async () => {
     const api = createFakeApi()
     const id = await stored(api)
-    expect(await api.open(id, auth)).toEqual({
+    expect(await api.open(id, gate, auth)).toEqual({
       status: 'ok',
       ciphertext: sealed.ciphertext,
       iv: sealed.iv,
     })
-    expect(await api.open(id, auth)).toEqual({ status: 'gone' })
+    expect(await api.open(id, gate, auth)).toEqual({ status: 'gone' })
     expect(api.rows().size).toBe(0)
   })
 
@@ -141,22 +154,41 @@ describe('fake api', () => {
     const id = await stored(api)
     const bad = toBase64(new Uint8Array(32))
     for (const remaining of [4, 3, 2, 1, 0]) {
-      expect(await api.open(id, bad)).toEqual({ status: 'wrong', remaining })
+      expect(await api.open(id, gate, bad)).toEqual({ status: 'wrong', remaining })
     }
-    expect(await api.open(id, auth)).toEqual({ status: 'gone' })
+    expect(await api.open(id, gate, auth)).toEqual({ status: 'gone' })
   })
 
   it('treats malformed auth as a wrong attempt', async () => {
     const api = createFakeApi()
     const id = await stored(api)
-    expect(await api.open(id, '!!!')).toEqual({ status: 'wrong', remaining: 4 })
+    expect(await api.open(id, gate, '!!!')).toEqual({ status: 'wrong', remaining: 4 })
+  })
+
+  it('a wrong gate is gone and never counts as an attempt', async () => {
+    const api = createFakeApi()
+    const id = await stored(api)
+    const badGate = toBase64(new Uint8Array(32))
+    for (let i = 0; i < 10; i++) {
+      expect(await api.open(id, badGate, auth)).toEqual({ status: 'gone' })
+      expect(await api.open(id, '!!!', auth)).toEqual({ status: 'gone' })
+    }
+    expect([...api.rows().values()][0]?.attempts).toBe(0)
+    expect((await api.open(id, gate, auth)).status).toBe('ok')
+  })
+
+  it('rejects a gate hash that is not 32 bytes', async () => {
+    const api = createFakeApi()
+    await expect(
+      api.create({ ...sealed, gateHash: toBase64(new Uint8Array(31)) }, 600),
+    ).rejects.toThrow('p_gate_hash')
   })
 
   it('wrong then right opens the note', async () => {
     const api = createFakeApi()
     const id = await stored(api)
-    await api.open(id, toBase64(new Uint8Array(32)))
-    expect((await api.open(id, auth)).status).toBe('ok')
+    await api.open(id, gate, toBase64(new Uint8Array(32)))
+    expect((await api.open(id, gate, auth)).status).toBe('ok')
   })
 
   it('expires notes', async () => {
@@ -164,7 +196,7 @@ describe('fake api', () => {
     const api = createFakeApi({ now: () => time })
     const id = await stored(api, 600)
     time += 600 * 1000
-    expect(await api.open(id, auth)).toEqual({ status: 'gone' })
+    expect(await api.open(id, gate, auth)).toEqual({ status: 'gone' })
     expect(api.rows().size).toBe(0)
   })
 
@@ -174,13 +206,13 @@ describe('fake api', () => {
     await stored(api)
     const row = [...api.rows().values()][0] ?? {}
     expect(Object.keys(row).sort()).toEqual(
-      ['attempts', 'authHash', 'ciphertext', 'expiresAt', 'iv'].sort(),
+      ['attempts', 'authHash', 'ciphertext', 'expiresAt', 'gateHash', 'iv'].sort(),
     )
   })
 
   it('rejects a non-uuid id like the uuid cast does', async () => {
     const api = createFakeApi()
-    await expect(api.open('nope', auth)).rejects.toBeInstanceOf(RequestError)
+    await expect(api.open('nope', gate, auth)).rejects.toBeInstanceOf(RequestError)
   })
 
   it('failNext fails exactly one call', async () => {
@@ -198,7 +230,7 @@ describe('fake api', () => {
     expect(stored).not.toContain('mensaje secreto')
     expect(stored).not.toContain('correct-horse-battery')
     const unlocked = await unlock(key, 'correct-horse-battery')
-    const result = await api.open(id, unlocked.auth)
+    const result = await api.open(id, unlocked.gate, unlocked.auth)
     if (result.status !== 'ok') throw new Error('expected ok')
     expect(await unlocked.decrypt(result.ciphertext, result.iv)).toBe('mensaje secreto')
   })

@@ -5,6 +5,7 @@ export type FakeRow = {
   ciphertext: string
   iv: string
   authHash: string
+  gateHash: string
   attempts: number
   expiresAt: number
 }
@@ -56,19 +57,24 @@ export function createFakeApi(options: { now?: () => number } = {}): FakeApi {
       checkBase64('p_ciphertext', sealed.ciphertext, (n) => n >= 17 && n <= 10016)
       checkBase64('p_iv', sealed.iv, (n) => n === 12)
       checkBase64('p_auth_hash', sealed.authHash, (n) => n === 32)
+      checkBase64('p_gate_hash', sealed.gateHash, (n) => n === 32)
       const id = crypto.randomUUID()
       notes.set(id, {
         ciphertext: sealed.ciphertext,
         iv: sealed.iv,
         authHash: sealed.authHash,
+        gateHash: sealed.gateHash,
         attempts: 0,
         expiresAt: now() + ttlSeconds * 1000,
       })
       return id
     },
-    async open(id, auth): Promise<OpenResult> {
+    async open(id, gate, auth): Promise<OpenResult> {
       takeFailure()
       if (!UUID.test(id)) throw new RequestError(400)
+      const gateHash = await Promise.resolve()
+        .then(() => sha256Base64(fromBase64(gate)))
+        .catch(() => null)
       const hash = await Promise.resolve()
         .then(() => sha256Base64(fromBase64(auth)))
         .catch(() => null)
@@ -78,6 +84,7 @@ export function createFakeApi(options: { now?: () => number } = {}): FakeApi {
         notes.delete(id)
         return { status: 'gone' }
       }
+      if (gateHash !== row.gateHash) return { status: 'gone' }
       if (hash === row.authHash) {
         notes.delete(id)
         return { status: 'ok', ciphertext: row.ciphertext, iv: row.iv }

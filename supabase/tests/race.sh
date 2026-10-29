@@ -4,19 +4,21 @@ set -euo pipefail
 PSQL="${PSQL:-psql "${BEHIN_TEST_DATABASE_URL:?set BEHIN_TEST_DATABASE_URL or PSQL}"}"
 
 auth='YXV0aA=='
+gate='Z2F0ZQ=='
 auth_hash=$($PSQL -qAt -c "select encode(extensions.digest(decode('$auth','base64'),'sha256'),'base64')")
+gate_hash=$($PSQL -qAt -c "select encode(extensions.digest(decode('$gate','base64'),'sha256'),'base64')")
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 
 new_note() {
-  $PSQL -qAt -c "select behin.create_note(encode(decode(repeat('00', 17), 'hex'), 'base64'), encode(decode(repeat('00', 12), 'hex'), 'base64'), '$auth_hash', 600)"
+  $PSQL -qAt -c "select behin.create_note(encode(decode(repeat('00', 17), 'hex'), 'base64'), encode(decode(repeat('00', 12), 'hex'), 'base64'), '$auth_hash', '$gate_hash', 600)"
 }
 
 open_many() {
   local id=$1 token=$2 n=$3
   rm -f "$out"/*
   for i in $(seq 1 "$n"); do
-    $PSQL -qAt -c "set role anon; select behin.open_note('$id', '$token')->>'status'" 2>&1 | tail -n 1 > "$out/$i" &
+    $PSQL -qAt -c "set role anon; select behin.open_note('$id', '$gate', '$token')->>'status'" 2>&1 | tail -n 1 > "$out/$i" &
   done
   wait
 }

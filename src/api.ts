@@ -9,7 +9,7 @@ export type OpenResult =
 
 export interface NotesApi {
   create(sealed: SealedNote, ttlSeconds: TtlSeconds): Promise<string>
-  open(id: string, auth: string): Promise<OpenResult>
+  open(id: string, gate: string, auth: string): Promise<OpenResult>
 }
 
 export class NetworkError extends Error {
@@ -88,13 +88,14 @@ export function createHttpApi(
         p_ciphertext: sealed.ciphertext,
         p_iv: sealed.iv,
         p_auth_hash: sealed.authHash,
+        p_gate_hash: sealed.gateHash,
         p_ttl_seconds: ttlSeconds,
       })
       if (typeof data !== 'string' || !UUID.test(data)) throw new NetworkError()
       return data
     },
-    async open(id, auth) {
-      const data = await rpc('open_note', { p_id: id, p_auth: auth })
+    async open(id, gate, auth) {
+      const data = await rpc('open_note', { p_id: id, p_gate: gate, p_auth: auth })
       if (!isRecord(data)) throw new NetworkError()
       if (data.status === 'gone') return { status: 'gone' }
       if (data.status === 'wrong' && typeof data.remaining === 'number') {

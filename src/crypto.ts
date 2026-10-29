@@ -4,7 +4,7 @@ const PBKDF2_ITERATIONS = 600_000
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-export type SealedNote = { ciphertext: string; iv: string; authHash: string }
+export type SealedNote = { ciphertext: string; iv: string; authHash: string; gateHash: string }
 
 export class DecryptError extends Error {
   constructor(options?: ErrorOptions) {
@@ -90,6 +90,12 @@ async function deriveAuthBytes(ikm: Uint8Array): Promise<Uint8Array> {
   return hkdf(ikm, 'behin/v1/auth', 32)
 }
 
+// The gate depends on the link key alone, so a password never reaches it and
+// someone holding only the id cannot produce it.
+async function deriveGate(key: Uint8Array): Promise<Uint8Array> {
+  return hkdf(key, 'behin/v1/gate', 32)
+}
+
 export async function sealNote(
   text: string,
   password?: string,
@@ -108,25 +114,34 @@ export async function sealNote(
   )
   const authToken = await deriveAuthBytes(ikm)
   const authHash = new Uint8Array(await crypto.subtle.digest('SHA-256', authToken as BufferSource))
+  const gate = await deriveGate(key)
+  const gateHash = new Uint8Array(await crypto.subtle.digest('SHA-256', gate as BufferSource))
   return {
     key,
     sealed: {
       ciphertext: toBase64(ciphertext),
       iv: toBase64(iv),
       authHash: toBase64(authHash),
+      gateHash: toBase64(gateHash),
     },
   }
 }
 
 export interface Unlocked {
+  gate: string
   auth: string
   decrypt(ciphertext: string, iv: string): Promise<string>
 }
 
 export async function unlock(key: Uint8Array, password?: string): Promise<Unlocked> {
   const ikm = await deriveIkm(key, password)
-  const [encKey, authBytes] = await Promise.all([deriveEncKey(ikm), deriveAuthBytes(ikm)])
+  const [encKey, authBytes, gateBytes] = await Promise.all([
+    deriveEncKey(ikm),
+    deriveAuthBytes(ikm),
+    deriveGate(key),
+  ])
   return {
+    gate: toBase64(gateBytes),
     auth: toBase64(authBytes),
     async decrypt(ciphertext, iv) {
       try {
