@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   DecryptError,
   MAX_NOTE_BYTES,
-  deriveAuth,
   fromBase64,
-  openNote,
   sealNote,
   toBase64,
+  unlock,
   utf8Bytes,
 } from '@/crypto'
 
@@ -19,60 +18,94 @@ describe('crypto', () => {
   it('roundtrip without password', async () => {
     const { key, sealed } = await sealNote('hola behin')
     expect(key).toHaveLength(32)
-    expect(await openNote(key, undefined, sealed.ciphertext, sealed.iv)).toBe('hola behin')
+    expect(await (await unlock(key, undefined)).decrypt(sealed.ciphertext, sealed.iv)).toBe(
+      'hola behin',
+    )
   })
 
   it('roundtrip with password', async () => {
     const { key, sealed } = await sealNote('secreto', 'correct horse')
-    expect(await openNote(key, 'correct horse', sealed.ciphertext, sealed.iv)).toBe('secreto')
+    expect(await (await unlock(key, 'correct horse')).decrypt(sealed.ciphertext, sealed.iv)).toBe(
+      'secreto',
+    )
   })
 
   it('treats an empty password the same as no password', async () => {
     const { key, sealed } = await sealNote('sin clave', '')
-    expect(await openNote(key, undefined, sealed.ciphertext, sealed.iv)).toBe('sin clave')
-    expect(await deriveAuth(key, '')).toBe(await deriveAuth(key))
+    expect(await (await unlock(key, undefined)).decrypt(sealed.ciphertext, sealed.iv)).toBe(
+      'sin clave',
+    )
+    expect((await unlock(key, '')).auth).toBe((await unlock(key)).auth)
   })
 
   it('wrong password throws', async () => {
     const { key, sealed } = await sealNote('secreto', 'right')
-    await expect(openNote(key, 'wrong', sealed.ciphertext, sealed.iv)).rejects.toBeInstanceOf(
-      DecryptError,
-    )
-    await expect(openNote(key, undefined, sealed.ciphertext, sealed.iv)).rejects.toBeInstanceOf(
-      DecryptError,
-    )
+    await expect(
+      (await unlock(key, 'wrong')).decrypt(sealed.ciphertext, sealed.iv),
+    ).rejects.toBeInstanceOf(DecryptError)
+    await expect(
+      (await unlock(key, undefined)).decrypt(sealed.ciphertext, sealed.iv),
+    ).rejects.toBeInstanceOf(DecryptError)
   })
 
   it('wrong key throws', async () => {
     const { sealed } = await sealNote('secreto')
     const other = crypto.getRandomValues(new Uint8Array(32))
-    await expect(openNote(other, undefined, sealed.ciphertext, sealed.iv)).rejects.toBeInstanceOf(
-      DecryptError,
-    )
+    await expect(
+      (await unlock(other, undefined)).decrypt(sealed.ciphertext, sealed.iv),
+    ).rejects.toBeInstanceOf(DecryptError)
   })
 
   it('tampered ciphertext throws', async () => {
     const { key, sealed } = await sealNote('secreto')
     const bytes = fromBase64(sealed.ciphertext)
     bytes[0] = (bytes[0] ?? 0) ^ 1
-    await expect(openNote(key, undefined, toBase64(bytes), sealed.iv)).rejects.toBeInstanceOf(
+    await expect(
+      (await unlock(key, undefined)).decrypt(toBase64(bytes), sealed.iv),
+    ).rejects.toBeInstanceOf(DecryptError)
+  })
+
+  it('flipping one iv byte throws', async () => {
+    const { key, sealed } = await sealNote('secreto')
+    const iv = fromBase64(sealed.iv)
+    iv[0] = (iv[0] ?? 0) ^ 1
+    await expect(
+      (await unlock(key)).decrypt(sealed.ciphertext, toBase64(iv)),
+    ).rejects.toBeInstanceOf(DecryptError)
+  })
+
+  it('an 8-byte iv throws', async () => {
+    const { key, sealed } = await sealNote('secreto')
+    const iv = toBase64(fromBase64(sealed.iv).slice(0, 8))
+    await expect((await unlock(key)).decrypt(sealed.ciphertext, iv)).rejects.toBeInstanceOf(
       DecryptError,
     )
   })
 
-  it('authHash equals sha256 of deriveAuth', async () => {
+  it('malformed base64 throws', async () => {
+    const { key, sealed } = await sealNote('secreto')
+    const u = await unlock(key)
+    await expect(u.decrypt(sealed.ciphertext + '!', sealed.iv)).rejects.toBeInstanceOf(DecryptError)
+    await expect(u.decrypt(sealed.ciphertext.replace(/=+$/, ''), sealed.iv)).rejects.toBeInstanceOf(
+      DecryptError,
+    )
+    expect(() => fromBase64('AB==')).toThrow()
+    expect(fromBase64('QQ==')).toEqual(Uint8Array.of(65))
+  })
+
+  it('authHash equals sha256 of unlock auth', async () => {
     const { key, sealed } = await sealNote('hola', 'pw')
-    const auth = await deriveAuth(key, 'pw')
+    const auth = (await unlock(key, 'pw')).auth
     expect(sealed.authHash).toBe(await sha256Base64(fromBase64(auth)))
     expect(fromBase64(auth)).toHaveLength(32)
   })
 
   it('different password gives different auth', async () => {
     const { key } = await sealNote('hola')
-    const a = await deriveAuth(key, 'one')
-    const b = await deriveAuth(key, 'two')
+    const a = (await unlock(key, 'one')).auth
+    const b = (await unlock(key, 'two')).auth
     expect(a).not.toBe(b)
-    expect(a).not.toBe(await deriveAuth(key))
+    expect(a).not.toBe((await unlock(key)).auth)
   })
 
   it('password NFC and NFD forms open the same note', async () => {
@@ -80,8 +113,8 @@ describe('crypto', () => {
     const nfd = 'café'
     expect(nfc).not.toBe(nfd)
     const { key, sealed } = await sealNote('nota', nfc)
-    expect(await openNote(key, nfd, sealed.ciphertext, sealed.iv)).toBe('nota')
-    expect(await deriveAuth(key, nfd)).toBe(await deriveAuth(key, nfc))
+    expect(await (await unlock(key, nfd)).decrypt(sealed.ciphertext, sealed.iv)).toBe('nota')
+    expect((await unlock(key, nfd)).auth).toBe((await unlock(key, nfc)).auth)
   })
 
   it('utf8Bytes counts 10000 bytes of emoji as over the limit', () => {
