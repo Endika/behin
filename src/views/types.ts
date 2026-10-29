@@ -8,4 +8,5 @@ export interface ViewDeps {
 
 export interface View {
   draw(): void
+  dispose(): void
 }

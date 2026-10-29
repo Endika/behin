@@ -22,6 +22,7 @@ export interface AppDeps {
   location: Location
   history: History
   storage: Storage
+  isFramed?: () => boolean
 }
 
 function readStoredLocale(storage: Storage): Locale | null {
@@ -110,8 +111,35 @@ export function mountApp(root: HTMLElement, deps: AppDeps): () => void {
   }
 
   function route(): void {
-    if (!deps.api) {
+    view?.dispose()
+    const framed = deps.isFramed ? deps.isFramed() : window.top !== window.self
+    if (framed) {
       view = {
+        dispose: () => {},
+        draw: () =>
+          main.replaceChildren(
+            h(
+              'div',
+              { class: 'stack' },
+              h('div', { class: 'lock muted-lock' }, icon('lock')),
+              h('h1', {}, t('framedTitle')),
+              h('p', { class: 'meta' }, t('framedBody')),
+              h(
+                'a',
+                {
+                  class: 'secondary',
+                  href: deps.location.href,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                },
+                t('framedOpen'),
+              ),
+            ),
+          ),
+      }
+    } else if (!deps.api) {
+      view = {
+        dispose: () => {},
         draw: () =>
           main.replaceChildren(
             h(

@@ -604,3 +604,17 @@ summary:hover {
     animation: none;
   }
 }
+
+h1:focus {
+  outline: none;
+}
+
+.banner-slot:empty {
+  display: none;
+}
+
+.code.link {
+  font-size: 13px;
+  user-select: all;
+  max-height: none;
+}
