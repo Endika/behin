@@ -131,6 +131,25 @@ describe('crypto', () => {
     await expect(sealNote('\u{1F600}'.repeat(2501))).rejects.toBeInstanceOf(RangeError)
   })
 
+  it('pads every note to the same ciphertext length', async () => {
+    const short = await sealNote('a')
+    const long = await sealNote('a'.repeat(MAX_NOTE_BYTES))
+    expect(fromBase64(short.sealed.ciphertext)).toHaveLength(MAX_NOTE_BYTES + 16)
+    expect(fromBase64(long.sealed.ciphertext)).toHaveLength(MAX_NOTE_BYTES + 16)
+  })
+
+  it('keeps trailing whitespace and the full text through the padding', async () => {
+    for (const text of ['línea\n\n  ', 'a'.repeat(MAX_NOTE_BYTES), '\u{1F600}'.repeat(2500)]) {
+      const { key, sealed } = await sealNote(text)
+      expect(await (await unlock(key)).decrypt(sealed.ciphertext, sealed.iv)).toBe(text)
+    }
+  })
+
+  it('refuses U+0000 so the padding stays unambiguous', async () => {
+    await expect(sealNote('abc\0')).rejects.toBeInstanceOf(RangeError)
+    await expect(sealNote('a\0b')).rejects.toBeInstanceOf(RangeError)
+  })
+
   it('emits standard base64 with a 12-byte iv and fresh randomness', async () => {
     const a = await sealNote('mismo texto')
     const b = await sealNote('mismo texto')

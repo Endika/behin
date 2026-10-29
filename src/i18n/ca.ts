@@ -9,6 +9,8 @@ export const ca: Record<MessageKey, string> = {
   notePlaceholder: 'Una contrasenya, una clau, una dada privada…',
   noteCounter: '{n} / {max} bytes',
   noteTooLong: 'La nota supera el límit de {max} bytes.',
+  noteHasNull:
+    'La nota conté un caràcter nul (U+0000), que behin no pot desar. Treu-lo per continuar.',
   addPassword: 'Afegeix una contrasenya',
   removePassword: 'Treu la contrasenya',
   passwordLabel: 'Contrasenya',

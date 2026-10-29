@@ -32,10 +32,12 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
 
   const isEmpty = (): boolean => text.trim().length === 0
   const isOver = (): boolean => utf8Bytes(text) > MAX_NOTE_BYTES
+  const hasNull = (): boolean => text.includes('\0')
+  const isInvalid = (): boolean => isEmpty() || isOver() || hasNull()
 
   async function submit(): Promise<void> {
     const api = deps.api
-    if (busy || !api || isEmpty() || isOver()) return
+    if (busy || !api || isInvalid()) return
     busy = true
     error = null
     refresh()
@@ -127,23 +129,24 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
     const warn = h('p', { class: 'error', id: 'too-long', role: 'alert' })
     const banner = h('div', { class: 'banner-slot' })
     const submitBtn = h('button', { type: 'submit', class: 'primary' })
-    let lastOver = false
+    let lastWarning: MessageKey | null = null
 
     function paintCounter(): void {
       const n = utf8Bytes(text)
       counter.textContent =
         n > MAX_NOTE_BYTES * 0.8 ? t('noteCounter', { n, max: MAX_NOTE_BYTES }) : ''
       counter.classList.toggle('over', n > MAX_NOTE_BYTES)
-      const over = n > MAX_NOTE_BYTES
-      if (over !== lastOver) {
-        lastOver = over
-        warn.textContent = over ? t('noteTooLong', { max: MAX_NOTE_BYTES }) : ''
-        area.setAttribute('aria-invalid', String(over))
+      const warning: MessageKey | null =
+        n > MAX_NOTE_BYTES ? 'noteTooLong' : hasNull() ? 'noteHasNull' : null
+      if (warning !== lastWarning) {
+        lastWarning = warning
+        warn.textContent = warning ? t(warning, { max: MAX_NOTE_BYTES }) : ''
+        area.setAttribute('aria-invalid', String(warning !== null))
       }
     }
 
     function paintSubmit(): void {
-      submitBtn.disabled = busy || isEmpty() || isOver()
+      submitBtn.disabled = busy || isInvalid()
       submitBtn.replaceChildren(
         busy ? icon('spinner', 'spin') : '',
         busy ? t('creating') : t('createButton'),

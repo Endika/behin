@@ -105,12 +105,17 @@ export async function sealNote(
   if (plaintext.length > MAX_NOTE_BYTES) {
     throw new RangeError(`The note exceeds ${MAX_NOTE_BYTES} bytes`)
   }
+  if (text.includes('\0')) throw new RangeError('The note contains U+0000')
+  // Every note is zero-padded to the same size so the ciphertext says nothing
+  // about its length; refusing U+0000 keeps the padding unambiguous.
+  const padded = new Uint8Array(MAX_NOTE_BYTES)
+  padded.set(plaintext)
   const key = crypto.getRandomValues(new Uint8Array(32))
   const ikm = await deriveIkm(key, password)
   const encKey = await deriveEncKey(ikm)
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, encKey, plaintext),
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, encKey, padded),
   )
   const authToken = await deriveAuthBytes(ikm)
   const authHash = new Uint8Array(await crypto.subtle.digest('SHA-256', authToken as BufferSource))
@@ -152,7 +157,10 @@ export async function unlock(key: Uint8Array, password?: string): Promise<Unlock
           encKey,
           fromBase64(ciphertext) as BufferSource,
         )
-        return decoder.decode(plaintext)
+        const bytes = new Uint8Array(plaintext)
+        let end = bytes.length
+        while (end > 0 && bytes[end - 1] === 0) end--
+        return decoder.decode(bytes.subarray(0, end))
       } catch (error) {
         throw new DecryptError({ cause: error })
       }
