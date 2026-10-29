@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 const PATTERNS = [
   'eyJ[A-Za-z0-9_-]{20,}',
   'sk_(live|test)_[A-Za-z0-9]+',
+  'sb_secret_[A-Za-z0-9_-]{20,}',
   'SUPABASE_(URL|ANON_KEY|SERVICE_ROLE_KEY)\\s*=\\s*[\'"]?https?://|SUPABASE_(URL|ANON_KEY|SERVICE_ROLE_KEY)\\s*=\\s*[\'"]?eyJ',
 ]
 const EXCLUDE = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml']
