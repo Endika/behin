@@ -1,5 +1,5 @@
-import type { NotesApi, OpenResult } from '../src/api'
-import { fromBase64, toBase64 } from '../src/crypto'
+import { RequestError, type NotesApi, type OpenResult } from '@/api'
+import { fromBase64, toBase64 } from '@/crypto'
 
 export type FakeRow = {
   ciphertext: string
@@ -14,6 +14,7 @@ export type FakeApi = NotesApi & {
   failNext(error: Error): void
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TTLS = [600, 3600, 86400, 604800]
 const MAX_ATTEMPTS = 5
 
@@ -67,6 +68,7 @@ export function createFakeApi(options: { now?: () => number } = {}): FakeApi {
     },
     async open(id, auth): Promise<OpenResult> {
       takeFailure()
+      if (!UUID.test(id)) throw new RequestError(400)
       const hash = await Promise.resolve()
         .then(() => sha256Base64(fromBase64(auth)))
         .catch(() => null)
