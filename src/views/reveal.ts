@@ -5,7 +5,8 @@ import { t, type MessageKey } from '@/i18n'
 import { parseFragment } from '@/link'
 import type { View, ViewDeps } from './types'
 
-type Phase = 'incomplete' | 'ready' | 'revealed' | 'gone' | 'destroyed' | 'undecryptable'
+type Phase =
+  'incomplete' | 'damaged' | 'ready' | 'revealed' | 'gone' | 'destroyed' | 'undecryptable'
 
 export function revealView(container: HTMLElement, deps: ViewDeps): View {
   const link = parseFragment(deps.location.hash)
@@ -55,7 +56,10 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
           phase = 'undecryptable'
         }
       } else if (result.status === 'wrong') {
-        if (result.remaining === 0) {
+        if (!link.hasPassword) {
+          wipeFragment()
+          phase = 'damaged'
+        } else if (result.remaining === 0) {
           wipeFragment()
           phase = 'destroyed'
         } else {
@@ -203,6 +207,9 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     switch (phase) {
       case 'incomplete':
         view = notice('incompleteTitle', 'incompleteBody')
+        break
+      case 'damaged':
+        view = notice('damagedTitle', 'damagedBody')
         break
       case 'ready':
         view = drawReady()
