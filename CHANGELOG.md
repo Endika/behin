@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Endika/behin/compare/v1.0.0...v1.0.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* pad notes to one size and forget revealed text on leave ([ecde6e3](https://github.com/Endika/behin/commit/ecde6e36beb977fb11267d3c72a1ec61c14c640a))
+
 ## 1.0.0 (2026-10-29)
 
 
