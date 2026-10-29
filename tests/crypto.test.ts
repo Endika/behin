@@ -139,4 +139,16 @@ describe('crypto', () => {
     expect(a.sealed.ciphertext).not.toBe(b.sealed.ciphertext)
     expect(a.sealed.authHash).not.toBe(b.sealed.authHash)
   })
+
+  it('derives the gate from the key alone and stores only its hash', async () => {
+    const { key, sealed } = await sealNote('secreto', 'pw')
+    const plain = await unlock(key)
+    const withPassword = await unlock(key, 'pw')
+    expect(withPassword.gate).toBe(plain.gate)
+    expect(withPassword.auth).not.toBe(plain.auth)
+    expect(plain.gate).not.toBe(plain.auth)
+    const digest = await crypto.subtle.digest('SHA-256', fromBase64(plain.gate) as BufferSource)
+    expect(toBase64(new Uint8Array(digest))).toBe(sealed.gateHash)
+    expect((await unlock(new Uint8Array(32).fill(1))).gate).not.toBe(plain.gate)
+  })
 })

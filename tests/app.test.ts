@@ -54,9 +54,9 @@ beforeEach(() => {
   opens = 0
   api = {
     create: (sealed, ttl) => fake.create(sealed, ttl),
-    open: (id, auth) => {
+    open: (id, gate, auth) => {
       opens += 1
-      return fake.open(id, auth)
+      return fake.open(id, gate, auth)
     },
   }
 })
@@ -224,6 +224,15 @@ describe('reveal view', () => {
     expect(window.location.hash).toBe('')
   })
 
+  it('says gone, without burning anything, when the link key is altered', async () => {
+    const { sealed } = await sealNote('guarded')
+    const id = await fake.create(sealed, 86400)
+    mount(buildLink('', id, new Uint8Array(32).fill(9), false))
+    submit()
+    await vi.waitFor(() => expect(root.textContent).toContain(t('goneTitle')))
+    expect([...fake.rows().values()][0]?.attempts).toBe(0)
+  })
+
   it('ignores a second submit while the first is in flight', async () => {
     mount(await seed('once only'))
     submit()
@@ -255,6 +264,7 @@ describe('reveal view', () => {
     submit()
     await vi.waitFor(() => expect(root.textContent).toContain(t('errNetwork')))
     expect($<HTMLButtonElement>('button[type="submit"]').disabled).toBe(false)
+    expect(document.activeElement).toBe($('button[type="submit"]'))
     expect(window.location.hash).not.toBe('')
     expect(fake.rows().size).toBe(1)
     submit()

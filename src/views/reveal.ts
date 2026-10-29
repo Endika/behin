@@ -44,7 +44,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     refresh()
     try {
       const unlocked = await unlock(link.key, link.hasPassword ? password : undefined)
-      const result = await api.open(link.id, unlocked.auth)
+      const result = await api.open(link.id, unlocked.gate, unlocked.auth)
       if (disposed) return
       if (result.status === 'ok') {
         wipeFragment()
@@ -80,6 +80,8 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
       if (input) {
         input.value = ''
         input.focus()
+      } else {
+        container.querySelector<HTMLElement>('button[type="submit"]')?.focus()
       }
     } else {
       animate = true
