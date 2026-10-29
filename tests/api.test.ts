@@ -94,6 +94,16 @@ describe('http api', () => {
     await expect(make('not-a-uuid').create(sealed, 600)).rejects.toBeInstanceOf(NetworkError)
     await expect(make({ status: 'maybe' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
     await expect(make({ status: 'wrong' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make({ status: 'ok', iv: 'i' }).open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
+    await expect(make({ status: 'ok', ciphertext: 'c' }).open(ID, 'a')).rejects.toBeInstanceOf(
+      NetworkError,
+    )
+    const html = createHttpApi(
+      'https://x',
+      'k',
+      recorder(() => new Response('<html>', { status: 400 })).fetchFn,
+    )
+    await expect(html.open(ID, 'a')).rejects.toBeInstanceOf(NetworkError)
   })
 
   it('error messages do not leak request data', async () => {
@@ -168,6 +178,11 @@ describe('fake api', () => {
     )
   })
 
+  it('rejects a non-uuid id like the uuid cast does', async () => {
+    const api = createFakeApi()
+    await expect(api.open('nope', auth)).rejects.toBeInstanceOf(RequestError)
+  })
+
   it('failNext fails exactly one call', async () => {
     const api = createFakeApi()
     api.failNext(new NetworkError())
@@ -177,9 +192,12 @@ describe('fake api', () => {
 
   it('round-trips a real sealed note', async () => {
     const api = createFakeApi()
-    const { key, sealed: note } = await sealNote('mensaje secreto', 'pw')
+    const { key, sealed: note } = await sealNote('mensaje secreto', 'correct-horse-battery')
     const id = await api.create(note, 600)
-    const unlocked = await unlock(key, 'pw')
+    const stored = JSON.stringify([...api.rows().values()])
+    expect(stored).not.toContain('mensaje secreto')
+    expect(stored).not.toContain('correct-horse-battery')
+    const unlocked = await unlock(key, 'correct-horse-battery')
     const result = await api.open(id, unlocked.auth)
     if (result.status !== 'ok') throw new Error('expected ok')
     expect(await unlocked.decrypt(result.ciphertext, result.iv)).toBe('mensaje secreto')
