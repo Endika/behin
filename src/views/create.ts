@@ -6,6 +6,7 @@ import { buildLink } from '@/link'
 import type { View, ViewDeps } from './types'
 
 const TTLS: readonly TtlSeconds[] = [600, 3600, 86400, 604800]
+const NO_AUTOFIX = { autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' }
 
 type Result = { link: string; ttl: TtlSeconds; hasPassword: boolean }
 
@@ -19,6 +20,8 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
   let error: MessageKey | null = null
   let result: Result | null = null
   let animate = false
+  let disposed = false
+  let refresh: () => void = () => {}
 
   function errorKey(cause: unknown): MessageKey {
     if (cause instanceof CapacityError) return 'errCapacity'
@@ -27,16 +30,20 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
     return 'errGeneric'
   }
 
+  const isEmpty = (): boolean => text.trim().length === 0
+  const isOver = (): boolean => utf8Bytes(text) > MAX_NOTE_BYTES
+
   async function submit(): Promise<void> {
     const api = deps.api
-    if (busy || !api || text.length === 0 || utf8Bytes(text) > MAX_NOTE_BYTES) return
+    if (busy || !api || isEmpty() || isOver()) return
     busy = true
     error = null
-    draw()
+    refresh()
     try {
       const usedPassword = passwordOpen && password.length > 0 ? password : undefined
       const { key, sealed } = await sealNote(text, usedPassword)
       const id = await api.create(sealed, ttl)
+      if (disposed) return
       const base = deps.location.origin + deps.location.pathname
       result = {
         link: buildLink(base, id, key, usedPassword !== undefined),
@@ -44,11 +51,15 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
         hasPassword: usedPassword !== undefined,
       }
       animate = true
+      busy = false
+      draw(true)
+      return
     } catch (cause) {
       error = errorKey(cause)
     }
+    if (disposed) return
     busy = false
-    draw()
+    refresh()
   }
 
   function resetForm(): void {
@@ -61,38 +72,26 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
   }
 
   function drawResult(done: Result): HTMLElement {
-    const field = h('input', {
-      class: 'field mono',
-      id: 'link',
-      type: 'text',
-      readonly: true,
-      value: done.link,
-      'aria-label': t('linkLabel'),
-      spellcheck: 'false',
-      autocomplete: 'off',
-      onfocus: (event) => (event.target as HTMLInputElement).select(),
-    })
-    field.value = done.link
-    const copyLabel = h('span', {}, t('copy'))
-    const copyBtn = h('button', { type: 'button', class: 'copy' }, icon('copy'), copyLabel)
+    const block = h('p', { class: 'code link', id: 'link', 'aria-label': t('linkLabel') })
+    block.textContent = done.link
+    const copyLabel = h('span', {}, t('copyLink'))
+    const copyBtn = h('button', { type: 'button', class: 'primary' }, icon('copy'), copyLabel)
     const note = h('p', { class: 'hint', role: 'status' })
+    let timer: ReturnType<typeof setTimeout> | undefined
     copyBtn.addEventListener('click', async () => {
-      const ok = await copyText(done.link, field)
-      copyLabel.textContent = ok ? t('copied') : t('copy')
+      const ok = await copyText(done.link, block)
+      clearTimeout(timer)
+      copyLabel.textContent = ok ? t('copied') : t('copyLink')
       note.textContent = ok ? '' : t('copyFailed')
+      if (ok) timer = setTimeout(() => (copyLabel.textContent = t('copyLink')), 2000)
     })
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
       h('div', { class: 'lock' }, icon('lock')),
-      h('h1', {}, t('linkTitle')),
-      h(
-        'div',
-        { class: 'field-row' },
-        h('label', { class: 'sr', for: 'link' }, t('linkLabel')),
-        field,
-        copyBtn,
-      ),
+      h('h1', { tabindex: '-1' }, t('linkTitle')),
+      block,
+      copyBtn,
       note,
       h('p', { class: 'meta' }, t('linkExpiry', { ttl: t(`ttlLong${done.ttl}`) })),
       done.hasPassword ? h('p', { class: 'meta strong' }, t('linkPassword')) : null,
@@ -100,10 +99,10 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
         'button',
         {
           type: 'button',
-          class: 'secondary',
+          class: 'link-btn',
           onclick: () => {
             resetForm()
-            draw()
+            draw(true)
           },
         },
         t('createAnother'),
@@ -112,20 +111,27 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
   }
 
   function drawForm(): HTMLElement {
-    const bytes = utf8Bytes(text)
-    const over = bytes > MAX_NOTE_BYTES
-    const showCounter = bytes > MAX_NOTE_BYTES * 0.8
-    const counter = h(
-      'p',
-      { class: over ? 'counter over' : 'counter', id: 'counter' },
-      showCounter ? t('noteCounter', { n: bytes, max: MAX_NOTE_BYTES }) : '',
-    )
+    const counter = h('p', { class: 'counter', id: 'counter' })
     const warn = h('p', { class: 'error', id: 'too-long', role: 'alert' })
+    const banner = h('div', { class: 'banner-slot' })
     const submitBtn = h('button', { type: 'submit', class: 'primary' })
+    let lastOver = false
+
+    function paintCounter(): void {
+      const n = utf8Bytes(text)
+      counter.textContent =
+        n > MAX_NOTE_BYTES * 0.8 ? t('noteCounter', { n, max: MAX_NOTE_BYTES }) : ''
+      counter.classList.toggle('over', n > MAX_NOTE_BYTES)
+      const over = n > MAX_NOTE_BYTES
+      if (over !== lastOver) {
+        lastOver = over
+        warn.textContent = over ? t('noteTooLong', { max: MAX_NOTE_BYTES }) : ''
+        area.setAttribute('aria-invalid', String(over))
+      }
+    }
 
     function paintSubmit(): void {
-      const disabled = busy || text.length === 0 || utf8Bytes(text) > MAX_NOTE_BYTES
-      submitBtn.disabled = disabled
+      submitBtn.disabled = busy || isEmpty() || isOver()
       submitBtn.replaceChildren(
         busy ? icon('spinner', 'spin') : '',
         busy ? t('creating') : t('createButton'),
@@ -133,31 +139,30 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
       submitBtn.setAttribute('aria-busy', String(busy))
     }
 
+    function paintBanner(): void {
+      banner.replaceChildren(
+        ...(error
+          ? [h('p', { class: 'banner', role: 'alert' }, icon('alert'), h('span', {}, t(error)))]
+          : []),
+      )
+    }
+
     const area = h('textarea', {
       id: 'note',
       class: 'field mono',
       rows: '6',
       placeholder: t('notePlaceholder'),
-      spellcheck: 'false',
       autocomplete: 'off',
+      ...NO_AUTOFIX,
       'aria-describedby': 'counter too-long',
       oninput: (event) => {
         text = (event.target as HTMLTextAreaElement).value
-        const n = utf8Bytes(text)
-        const isOver = n > MAX_NOTE_BYTES
-        counter.textContent =
-          n > MAX_NOTE_BYTES * 0.8 ? t('noteCounter', { n, max: MAX_NOTE_BYTES }) : ''
-        counter.classList.toggle('over', isOver)
-        warn.textContent = isOver ? t('noteTooLong', { max: MAX_NOTE_BYTES }) : ''
-        area.setAttribute('aria-invalid', String(isOver))
+        paintCounter()
         paintSubmit()
       },
     })
     area.value = text
-    if (over) {
-      warn.textContent = t('noteTooLong', { max: MAX_NOTE_BYTES })
-      area.setAttribute('aria-invalid', 'true')
-    }
+    paintCounter()
 
     let passwordBlock: HTMLElement
     if (passwordOpen) {
@@ -166,7 +171,7 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
         class: 'field',
         type: passwordShown ? 'text' : 'password',
         autocomplete: 'new-password',
-        spellcheck: 'false',
+        ...NO_AUTOFIX,
         oninput: (event) => {
           password = (event.target as HTMLInputElement).value
         },
@@ -199,6 +204,7 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
               password = ''
               passwordShown = false
               draw()
+              document.getElementById('note')?.focus()
             },
           },
           t('removePassword'),
@@ -242,7 +248,11 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
       ),
     )
 
-    paintSubmit()
+    refresh = () => {
+      paintSubmit()
+      paintBanner()
+    }
+    refresh()
     return h(
       'form',
       {
@@ -254,7 +264,7 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
         },
       },
       h('div', { class: 'lock' }, icon('lock')),
-      h('h1', {}, t('createTitle')),
+      h('h1', { tabindex: '-1' }, t('createTitle')),
       h('p', { class: 'meta' }, t('createLead')),
       h(
         'div',
@@ -266,17 +276,22 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
       ),
       passwordBlock,
       seg,
-      error
-        ? h('p', { class: 'banner', role: 'alert' }, icon('alert'), h('span', {}, t(error)))
-        : null,
+      banner,
       submitBtn,
     )
   }
 
-  function draw(): void {
+  function draw(focusHeading = false): void {
+    if (disposed) return
     container.replaceChildren(result ? drawResult(result) : drawForm())
     animate = false
+    if (focusHeading) container.querySelector<HTMLElement>('h1')?.focus()
   }
 
-  return { draw }
+  return {
+    draw: () => draw(),
+    dispose: () => {
+      disposed = true
+    },
+  }
 }

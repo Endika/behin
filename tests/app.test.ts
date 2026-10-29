@@ -12,9 +12,15 @@ let fake: FakeApi
 let opens: number
 let api: NotesApi
 
-function mount(hash = '', storage: Storage = localStorage): void {
+function mount(hash = '', storage: Storage = localStorage, isFramed = () => false): void {
   window.history.replaceState(null, '', '/behin/' + hash)
-  dispose = mountApp(root, { api, location: window.location, history: window.history, storage })
+  dispose = mountApp(root, {
+    api,
+    location: window.location,
+    history: window.history,
+    storage,
+    isFramed,
+  })
 }
 
 function $<T extends HTMLElement>(selector: string): T {
@@ -62,8 +68,8 @@ describe('create view', () => {
     mount()
     type($('textarea'), 'tortuga-azul-73')
     submit()
-    const field = await vi.waitFor(() => $<HTMLInputElement>('#link'))
-    expect(field.value).toMatch(
+    const field = await vi.waitFor(() => $('#link'))
+    expect(field.textContent!).toMatch(
       /^http:\/\/localhost:\d+\/behin\/#[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/,
     )
     expect(fake.rows().size).toBe(1)
@@ -77,9 +83,15 @@ describe('create view', () => {
     ;($('.link-btn') as HTMLButtonElement).click()
     type($('#password'), 'hunter2')
     submit()
-    const field = await vi.waitFor(() => $<HTMLInputElement>('#link'))
-    expect(field.value.endsWith('.p')).toBe(true)
+    const field = await vi.waitFor(() => $('#link'))
+    expect(field.textContent!.endsWith('.p')).toBe(true)
     expect(root.textContent).toContain(t('linkPassword'))
+  })
+
+  it('treats a whitespace-only note as empty', () => {
+    mount()
+    type($('textarea'), '  \n ')
+    expect($<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true)
   })
 
   it('offers four expiry options with one day selected', () => {
@@ -137,7 +149,7 @@ describe('create view', () => {
     type($('textarea'), 'x')
     submit()
     await vi.waitFor(() => $('#link'))
-    $<HTMLButtonElement>('.copy').click()
+    $<HTMLButtonElement>('button.primary').click()
     await vi.waitFor(() => expect(root.textContent).toContain(t('copyFailed')))
   })
 })
@@ -209,6 +221,31 @@ describe('reveal view', () => {
     expect(root.textContent).toContain(t('incompleteTitle'))
     expect(opens).toBe(0)
     expect(root.querySelector('button[type="submit"]')).toBeNull()
+    expect(window.location.hash).toBe('')
+  })
+
+  it('ignores a second submit while the first is in flight', async () => {
+    mount(await seed('once only'))
+    submit()
+    submit()
+    await vi.waitFor(() => $('#note'))
+    expect(opens).toBe(1)
+  })
+
+  it('shows only a direct-link message when framed', async () => {
+    const hash = await seed('framed')
+    mount(hash, localStorage, () => true)
+    expect(root.textContent).toContain(t('framedTitle'))
+    expect(root.querySelector('button')).toBeNull()
+    expect(root.querySelector<HTMLAnchorElement>('main a')!.href).toBe(window.location.href)
+    expect(opens).toBe(0)
+  })
+
+  it('moves focus to the heading after revealing', async () => {
+    mount(await seed('focus me'))
+    submit()
+    await vi.waitFor(() => $('#note'))
+    expect(document.activeElement?.tagName).toBe('H1')
   })
 
   it('keeps the note recoverable after a network error', async () => {

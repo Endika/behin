@@ -1,5 +1,5 @@
 import { NetworkError, RequestError } from '@/api'
-import { DecryptError, unlock } from '@/crypto'
+import { unlock } from '@/crypto'
 import { copyText, h, icon } from '@/dom'
 import { t, type MessageKey } from '@/i18n'
 import { parseFragment } from '@/link'
@@ -15,10 +15,14 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
   let error: { key: MessageKey; params?: Record<string, number> } | null = null
   let plaintext = ''
   let animate = false
+  let disposed = false
+  let refresh: () => void = () => {}
 
   function wipeFragment(): void {
     deps.history.replaceState(null, '', deps.location.pathname + deps.location.search)
   }
+
+  if (!link) wipeFragment()
 
   function fail(cause: unknown): void {
     error = {
@@ -37,25 +41,23 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     if (link.hasPassword && password.length === 0) return
     busy = true
     error = null
-    draw()
+    refresh()
     try {
       const unlocked = await unlock(link.key, link.hasPassword ? password : undefined)
       const result = await api.open(link.id, unlocked.auth)
+      if (disposed) return
       if (result.status === 'ok') {
         wipeFragment()
         try {
           plaintext = await unlocked.decrypt(result.ciphertext, result.iv)
           phase = 'revealed'
-        } catch (cause) {
-          if (!(cause instanceof DecryptError)) throw cause
+        } catch {
           phase = 'undecryptable'
         }
-        animate = true
       } else if (result.status === 'wrong') {
         if (result.remaining === 0) {
           wipeFragment()
           phase = 'destroyed'
-          animate = true
         } else {
           password = ''
           error = {
@@ -66,37 +68,57 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
       } else {
         wipeFragment()
         phase = 'gone'
-        animate = true
       }
     } catch (cause) {
       fail(cause)
     }
+    if (disposed) return
     busy = false
-    draw()
-    if (phase === 'ready') document.getElementById('password')?.focus()
+    if (phase === 'ready') {
+      refresh()
+      const input = document.getElementById('password') as HTMLInputElement | null
+      if (input) {
+        input.value = ''
+        input.focus()
+      }
+    } else {
+      animate = true
+      draw(true)
+    }
   }
 
-  function notice(title: MessageKey, body: MessageKey, withLink = true): HTMLElement {
+  function notice(title: MessageKey, body: MessageKey): HTMLElement {
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
       h('div', { class: 'lock muted-lock' }, icon('lock')),
-      h('h1', {}, t(title)),
+      h('h1', { tabindex: '-1' }, t(title)),
       h('p', { class: 'meta' }, t(body)),
-      withLink
-        ? h('a', { class: 'secondary', href: deps.location.pathname }, t('createNew'))
-        : null,
+      h('a', { class: 'secondary', href: deps.location.pathname }, t('createNew')),
     )
   }
 
   function drawReady(): HTMLElement {
     const button = h('button', { type: 'submit', class: 'primary' })
+    const banner = h('div', { class: 'banner-slot' })
     function paint(): void {
       button.disabled = busy || !deps.api || (!!link?.hasPassword && password.length === 0)
       button.setAttribute('aria-busy', String(busy))
       button.replaceChildren(
         busy ? icon('spinner', 'spin') : '',
         busy ? t('revealing') : t('revealButton'),
+      )
+      banner.replaceChildren(
+        ...(error
+          ? [
+              h(
+                'p',
+                { class: 'banner', role: 'alert' },
+                icon('alert'),
+                h('span', {}, t(error.key, error.params)),
+              ),
+            ]
+          : []),
       )
     }
     let field: HTMLElement | null = null
@@ -106,8 +128,9 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
         class: 'field',
         type: 'password',
         autocomplete: 'off',
+        autocapitalize: 'off',
+        autocorrect: 'off',
         spellcheck: 'false',
-        'aria-invalid': error ? 'true' : undefined,
         oninput: (event) => {
           password = (event.target as HTMLInputElement).value
           paint()
@@ -121,6 +144,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
         input,
       )
     }
+    refresh = paint
     paint()
     return h(
       'form',
@@ -133,16 +157,9 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
         },
       },
       h('div', { class: 'lock' }, icon('lock')),
-      h('h1', {}, t('revealTitle')),
+      h('h1', { tabindex: '-1' }, t('revealTitle')),
       field,
-      error
-        ? h(
-            'p',
-            { class: 'banner', role: 'alert' },
-            icon('alert'),
-            h('span', {}, t(error.key, error.params)),
-          )
-        : null,
+      banner,
       button,
       h('p', { class: 'hint center' }, t('revealHint')),
     )
@@ -154,15 +171,18 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     const label = h('span', {}, t('copy'))
     const status = h('p', { class: 'hint', role: 'status' })
     const button = h('button', { type: 'button', class: 'copy' }, icon('copy'), label)
+    let timer: ReturnType<typeof setTimeout> | undefined
     button.addEventListener('click', async () => {
       const ok = await copyText(plaintext, code)
+      clearTimeout(timer)
       label.textContent = ok ? t('copied') : t('copy')
       status.textContent = ok ? '' : t('copyFailed')
+      if (ok) timer = setTimeout(() => (label.textContent = t('copy')), 2000)
     })
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
-      h('h1', {}, t('revealedTitle')),
+      h('h1', { tabindex: '-1' }, t('revealedTitle')),
       code,
       h(
         'div',
@@ -175,7 +195,8 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     )
   }
 
-  function draw(): void {
+  function draw(focusHeading = false): void {
+    if (disposed) return
     let view: HTMLElement
     switch (phase) {
       case 'incomplete':
@@ -199,7 +220,13 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     }
     container.replaceChildren(view)
     animate = false
+    if (focusHeading) container.querySelector<HTMLElement>('h1')?.focus()
   }
 
-  return { draw }
+  return {
+    draw: () => draw(),
+    dispose: () => {
+      disposed = true
+    },
+  }
 }
