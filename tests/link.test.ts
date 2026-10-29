@@ -71,7 +71,7 @@ describe('link', () => {
 
   it('returns null for percent-encoded or inner-whitespace fragments', () => {
     expect(parseFragment(`#${ID}%2E${keyPart()}`)).toBeNull()
-    expect(parseFragment(`#${ID}.${keyPart().replace('', '%41').slice(0, 43)}`)).toBeNull()
+    expect(parseFragment(`#${ID}.${'%41' + keyPart().slice(0, 40)}`)).toBeNull()
     expect(parseFragment(`#${ID}. ${keyPart()}`)).toBeNull()
   })
 })
