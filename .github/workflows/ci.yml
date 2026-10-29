@@ -26,7 +26,8 @@ jobs:
       - run: npm run lint
       - run: npm run type:check
       - run: npm run test:run
-      - run: npm run secret-scan
+      - run: npm run secret-scan -- --all
+      - run: npm run build
 
   all-green:
     name: all-green
