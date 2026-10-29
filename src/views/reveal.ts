@@ -164,10 +164,11 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
       },
       h('div', { class: 'lock' }, icon('lock')),
       h('h1', { tabindex: '-1' }, t('revealTitle')),
+      h('p', { class: 'meta' }, t('revealMeta')),
       field,
       banner,
       button,
-      h('p', { class: 'hint center' }, t('revealHint')),
+      h('p', { class: 'hint' }, t('revealHint')),
     )
   }
 
@@ -182,8 +183,14 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
       const ok = await copyText(plaintext, code)
       clearTimeout(timer)
       label.textContent = ok ? t('copied') : t('copy')
+      button.replaceChildren(icon(ok ? 'check' : 'copy'), label)
       status.textContent = ok ? '' : t('copyFailed')
-      if (ok) timer = setTimeout(() => (label.textContent = t('copy')), 2000)
+      if (ok) {
+        timer = setTimeout(() => {
+          label.textContent = t('copy')
+          button.replaceChildren(icon('copy'), label)
+        }, 2000)
+      }
     })
     return h(
       'div',
@@ -197,7 +204,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
         button,
       ),
       status,
-      h('a', { class: 'secondary', href: deps.location.pathname }, t('createNew')),
+      h('a', { class: 'link-btn', href: deps.location.pathname }, t('createNew')),
     )
   }
 

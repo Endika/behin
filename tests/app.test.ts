@@ -88,6 +88,42 @@ describe('create view', () => {
     expect(root.textContent).toContain(t('linkPassword'))
   })
 
+  it('submits with Ctrl+Enter from the textarea', async () => {
+    mount()
+    type($('textarea'), 'quick')
+    $('textarea').dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await vi.waitFor(() => $('#link'))
+    expect(fake.rows().size).toBe(1)
+  })
+
+  it('swaps the copy icon to a check and gives the link an accessible name', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.resolve() },
+      configurable: true,
+    })
+    try {
+      mount()
+      type($('textarea'), 'x')
+      submit()
+      await vi.waitFor(() => $('#link'))
+      expect($('#link').getAttribute('aria-labelledby')).toBe('link-label')
+      const button = $<HTMLButtonElement>('button.primary')
+      const before = button.innerHTML
+      button.click()
+      await vi.waitFor(() => expect(button.textContent).toContain(t('copied')))
+      expect(button.innerHTML).not.toBe(before)
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
   it('treats a whitespace-only note as empty', () => {
     mount()
     type($('textarea'), '  \n ')
@@ -168,6 +204,8 @@ describe('reveal view', () => {
     expect(window.location.hash).toBe('')
     expect(fake.rows().size).toBe(0)
     expect(root.textContent).toContain(t('chipDeleted'))
+    expect(root.querySelector('.secondary')).toBeNull()
+    expect(root.querySelector('a.link-btn')).not.toBeNull()
   })
 
   it('renders the note as text, never as HTML', async () => {

@@ -72,7 +72,12 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
   }
 
   function drawResult(done: Result): HTMLElement {
-    const block = h('p', { class: 'code link', id: 'link', 'aria-label': t('linkLabel') })
+    const block = h('p', {
+      class: 'code link',
+      id: 'link',
+      role: 'group',
+      'aria-labelledby': 'link-label',
+    })
     block.textContent = done.link
     const copyLabel = h('span', {}, t('copyLink'))
     const copyBtn = h('button', { type: 'button', class: 'primary' }, icon('copy'), copyLabel)
@@ -82,14 +87,21 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
       const ok = await copyText(done.link, block)
       clearTimeout(timer)
       copyLabel.textContent = ok ? t('copied') : t('copyLink')
+      copyBtn.replaceChildren(icon(ok ? 'check' : 'copy'), copyLabel)
       note.textContent = ok ? '' : t('copyFailed')
-      if (ok) timer = setTimeout(() => (copyLabel.textContent = t('copyLink')), 2000)
+      if (ok) {
+        timer = setTimeout(() => {
+          copyLabel.textContent = t('copyLink')
+          copyBtn.replaceChildren(icon('copy'), copyLabel)
+        }, 2000)
+      }
     })
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
       h('div', { class: 'lock' }, icon('lock')),
       h('h1', { tabindex: '-1' }, t('linkTitle')),
+      h('span', { class: 'sr', id: 'link-label' }, t('linkLabel')),
       block,
       copyBtn,
       note,
@@ -149,12 +161,19 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
 
     const area = h('textarea', {
       id: 'note',
-      class: 'field mono',
+      class: 'field',
       rows: '6',
       placeholder: t('notePlaceholder'),
       autocomplete: 'off',
       ...NO_AUTOFIX,
       'aria-describedby': 'counter too-long',
+      onkeydown: (event) => {
+        const key = event as KeyboardEvent
+        if (key.key === 'Enter' && (key.ctrlKey || key.metaKey)) {
+          key.preventDefault()
+          void submit()
+        }
+      },
       oninput: (event) => {
         text = (event.target as HTMLTextAreaElement).value
         paintCounter()
