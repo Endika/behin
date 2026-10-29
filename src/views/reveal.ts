@@ -25,6 +25,16 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
 
   if (!link) wipeFragment()
 
+  // The back/forward cache would otherwise restore the revealed text to anyone
+  // who presses Back in this browser.
+  function forgetOnLeave(): void {
+    if (phase !== 'revealed') return
+    plaintext = ''
+    phase = 'gone'
+    draw()
+  }
+  window.addEventListener('pagehide', forgetOnLeave)
+
   function fail(cause: unknown): void {
     error = {
       key:
@@ -243,6 +253,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     draw: () => draw(),
     dispose: () => {
       disposed = true
+      window.removeEventListener('pagehide', forgetOnLeave)
     },
   }
 }

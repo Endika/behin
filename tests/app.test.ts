@@ -162,6 +162,17 @@ describe('create view', () => {
     expect(submit.disabled).toBe(false)
   })
 
+  it('refuses a note with a null character and says why', () => {
+    mount()
+    const submit = $<HTMLButtonElement>('button[type="submit"]')
+    type($('textarea'), 'clave\0')
+    expect(submit.disabled).toBe(true)
+    expect($('#too-long').textContent).toBe(t('noteHasNull'))
+    type($('textarea'), 'clave')
+    expect(submit.disabled).toBe(false)
+    expect($('#too-long').textContent).toBe('')
+  })
+
   it('shows the counter only above 80% of the limit', () => {
     mount()
     type($('textarea'), 'a'.repeat(100))
@@ -206,6 +217,35 @@ describe('reveal view', () => {
     expect(root.textContent).toContain(t('chipDeleted'))
     expect(root.querySelector('.secondary')).toBeNull()
     expect(root.querySelector('a.link-btn')).not.toBeNull()
+  })
+
+  it('shows and copies exactly the original text, without the padding', async () => {
+    const copied: string[] = []
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: (text: string) => (copied.push(text), Promise.resolve()) },
+      configurable: true,
+    })
+    try {
+      const text = 'usuario: ekin\ncontraseña: tortuga-azul-73\n'
+      mount(await seed(text))
+      submit()
+      await vi.waitFor(() => expect($('#note').textContent).toBe(text))
+      $<HTMLButtonElement>('button.copy').click()
+      await vi.waitFor(() => expect(copied).toEqual([text]))
+      expect(copied[0]).not.toContain('\0')
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard')
+    }
+  })
+
+  it('forgets the revealed text when the page is left, so Back cannot restore it', async () => {
+    mount(await seed('pin 4321'))
+    submit()
+    await vi.waitFor(() => expect($('#note').textContent).toBe('pin 4321'))
+    window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }))
+    expect(root.querySelector('#note')).toBeNull()
+    expect(root.textContent).not.toContain('pin 4321')
+    expect(root.textContent).toContain(t('goneTitle'))
   })
 
   it('renders the note as text, never as HTML', async () => {

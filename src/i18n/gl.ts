@@ -9,6 +9,8 @@ export const gl: Record<MessageKey, string> = {
   notePlaceholder: 'Un contrasinal, unha clave, un dato privado…',
   noteCounter: '{n} / {max} bytes',
   noteTooLong: 'A nota supera o límite de {max} bytes.',
+  noteHasNull:
+    'A nota contén un carácter nulo (U+0000), que behin non pode gardar. Quítao para continuar.',
   addPassword: 'Engadir contrasinal',
   removePassword: 'Quitar contrasinal',
   passwordLabel: 'Contrasinal',

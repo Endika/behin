@@ -10,6 +10,8 @@ export const eu: Record<MessageKey, string> = {
   notePlaceholder: 'Pasahitz bat, gako bat, datu pribatu bat…',
   noteCounter: '{n} / {max} byte',
   noteTooLong: 'Oharrak {max} byteko muga gainditzen du.',
+  noteHasNull:
+    'Oharrak karaktere nulu bat du (U+0000), eta behin-ek ezin du gorde. Kendu jarraitzeko.',
   addPassword: 'Gehitu pasahitza',
   removePassword: 'Kendu pasahitza',
   passwordLabel: 'Pasahitza',

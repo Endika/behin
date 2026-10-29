@@ -7,6 +7,8 @@ export const es = {
   notePlaceholder: 'Una contraseña, una clave, un dato privado…',
   noteCounter: '{n} / {max} bytes',
   noteTooLong: 'La nota supera el límite de {max} bytes.',
+  noteHasNull:
+    'La nota contiene un carácter nulo (U+0000), que behin no puede guardar. Quítalo para continuar.',
   addPassword: 'Añadir contraseña',
   removePassword: 'Quitar contraseña',
   passwordLabel: 'Contraseña',

@@ -10,6 +10,8 @@ export const en: Record<MessageKey, string> = {
   notePlaceholder: 'A password, a key, something private…',
   noteCounter: '{n} / {max} bytes',
   noteTooLong: 'The note exceeds the {max}-byte limit.',
+  noteHasNull:
+    'The note contains a null character (U+0000), which behin cannot store. Remove it to continue.',
   addPassword: 'Add a password',
   removePassword: 'Remove password',
   passwordLabel: 'Password',
