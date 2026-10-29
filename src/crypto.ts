@@ -24,9 +24,13 @@ export function toBase64(bytes: Uint8Array): string {
 }
 
 export function fromBase64(value: string): Uint8Array {
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) {
+    throw new TypeError('Invalid base64')
+  }
   const binary = atob(value)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  if (toBase64(bytes) !== value) throw new TypeError('Non-canonical base64')
   return bytes
 }
 
@@ -86,10 +90,6 @@ async function deriveAuthBytes(ikm: Uint8Array): Promise<Uint8Array> {
   return hkdf(ikm, 'behin/v1/auth', 32)
 }
 
-export async function deriveAuth(key: Uint8Array, password?: string): Promise<string> {
-  return toBase64(await deriveAuthBytes(await deriveIkm(key, password)))
-}
-
 export async function sealNote(
   text: string,
   password?: string,
@@ -118,21 +118,29 @@ export async function sealNote(
   }
 }
 
-export async function openNote(
-  key: Uint8Array,
-  password: string | undefined,
-  ciphertext: string,
-  iv: string,
-): Promise<string> {
-  try {
-    const encKey = await deriveEncKey(await deriveIkm(key, password))
-    const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: fromBase64(iv) as BufferSource },
-      encKey,
-      fromBase64(ciphertext) as BufferSource,
-    )
-    return decoder.decode(plaintext)
-  } catch (error) {
-    throw new DecryptError({ cause: error })
+export interface Unlocked {
+  auth: string
+  decrypt(ciphertext: string, iv: string): Promise<string>
+}
+
+export async function unlock(key: Uint8Array, password?: string): Promise<Unlocked> {
+  const ikm = await deriveIkm(key, password)
+  const [encKey, authBytes] = await Promise.all([deriveEncKey(ikm), deriveAuthBytes(ikm)])
+  return {
+    auth: toBase64(authBytes),
+    async decrypt(ciphertext, iv) {
+      try {
+        const ivBytes = fromBase64(iv)
+        if (ivBytes.length !== 12) throw new TypeError('Invalid iv length')
+        const plaintext = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: ivBytes as BufferSource },
+          encKey,
+          fromBase64(ciphertext) as BufferSource,
+        )
+        return decoder.decode(plaintext)
+      } catch (error) {
+        throw new DecryptError({ cause: error })
+      }
+    },
   }
 }

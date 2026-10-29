@@ -1,17 +1,15 @@
+import { fromBase64, toBase64 } from './crypto'
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const KEY = /^[A-Za-z0-9_-]{43}$/
 
 function encodeKey(key: Uint8Array): string {
-  let binary = ''
-  for (const byte of key) binary += String.fromCharCode(byte)
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+  return toBase64(key).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
 }
 
 function decodeKey(value: string): Uint8Array | null {
   try {
-    const binary = atob(value.replaceAll('-', '+').replaceAll('_', '/') + '=')
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const bytes = fromBase64(value.replaceAll('-', '+').replaceAll('_', '/') + '=')
     return bytes.length === 32 ? bytes : null
   } catch {
     return null
