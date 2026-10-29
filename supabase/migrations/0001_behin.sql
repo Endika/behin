@@ -1,5 +1,4 @@
--- supabase/migrations/0001_behin.sql
-create schema if not exists behin;
+create schema behin;
 
 create table behin.notes (
   id uuid primary key default gen_random_uuid(),
@@ -11,7 +10,7 @@ create table behin.notes (
 );
 
 alter table behin.notes enable row level security;
-revoke all on table behin.notes from public, anon, authenticated;
+revoke all on table behin.notes from public, anon, authenticated, service_role;
 
 grant usage on schema behin to anon;
 
@@ -126,8 +125,8 @@ begin
 end;
 $$;
 
-revoke all on function behin.create_note(text, text, text, int) from public;
-revoke all on function behin.open_note(uuid, text) from public;
+revoke all on function behin.create_note(text, text, text, int), behin.open_note(uuid, text)
+  from public, authenticated, service_role;
 grant execute on function behin.create_note(text, text, text, int) to anon;
 grant execute on function behin.open_note(uuid, text) to anon;
 
