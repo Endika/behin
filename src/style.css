@@ -87,9 +87,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px 0;
-  max-width: 520px;
-  width: 100%;
+  padding: 14px 0 0;
+  max-width: 460px;
+  width: calc(100% - 28px);
   margin: 0 auto;
 }
 
@@ -211,6 +211,7 @@ h1 {
 
 p {
   margin: 0;
+  text-wrap: pretty;
 }
 
 label,
@@ -238,11 +239,6 @@ legend {
 
 .hint:empty {
   display: none;
-}
-
-.center {
-  text-align: center;
-  margin-top: -4px;
 }
 
 .field {
@@ -278,11 +274,6 @@ legend {
 textarea.field {
   resize: vertical;
   min-height: 140px;
-}
-
-.mono {
-  font-family: var(--mono);
-  font-size: 14px;
 }
 
 .field-row {
@@ -340,12 +331,13 @@ button,
 }
 
 .primary:disabled {
-  opacity: 0.4;
+  background: var(--s-code);
+  color: var(--s-muted);
+  opacity: 1;
   cursor: not-allowed;
 }
 
 .primary[aria-busy='true']:disabled {
-  opacity: 0.7;
   cursor: progress;
 }
 
@@ -392,6 +384,7 @@ button,
 }
 
 .link-btn {
+  display: inline-block;
   justify-self: start;
   border: 0;
   background: none;
@@ -402,6 +395,10 @@ button,
   text-underline-offset: 3px;
   text-decoration-color: var(--s-line-strong);
   cursor: pointer;
+}
+
+.seg label:hover input:not(:checked) + span {
+  color: var(--s-fg);
 }
 
 .link-btn:hover {
@@ -481,6 +478,7 @@ button,
 }
 
 .code {
+  scrollbar-color: var(--s-line-strong) transparent;
   margin: 0;
   background: var(--s-code);
   border-radius: 9px;
@@ -614,6 +612,7 @@ h1:focus {
 }
 
 .code.link {
+  word-break: break-all;
   font-size: 13px;
   user-select: all;
   max-height: none;

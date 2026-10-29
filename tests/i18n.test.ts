@@ -29,6 +29,10 @@ describe('i18n', () => {
     expect(detectLocale([])).toBe('en')
   })
 
+  it('has the reveal meta line in every locale', () => {
+    for (const locale of LOCALES) expect(tables[locale].revealMeta.length).toBeGreaterThan(0)
+  })
+
   it('fills placeholders', () => {
     setLocale('en')
     expect(t('noteCounter', { n: 3, max: 10 })).toBe('3 / 10 bytes')

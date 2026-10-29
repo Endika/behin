@@ -145,7 +145,7 @@ export function mountApp(root: HTMLElement, deps: AppDeps): () => void {
             h(
               'div',
               { class: 'stack' },
-              h('div', { class: 'lock muted-lock' }, icon('alert')),
+              h('div', { class: 'lock muted-lock' }, icon('lock')),
               h(
                 'p',
                 { class: 'banner', role: 'alert' },
