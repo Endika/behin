@@ -12,7 +12,7 @@ create function t.hash(a text) returns text language sql security definer as $$
   select encode(extensions.digest(decode(a, 'base64'), 'sha256'), 'base64')
 $$;
 
--- t.good_auth is the token; its hash is what the server stores
+-- stores the hash of the token 'Z29vZA==' (base64 of 'good')
 create function t.mk(ttl int default 600) returns uuid language sql as $$
   select behin.create_note(t.b64(32), t.b64(12), t.hash('Z29vZA=='), ttl)
 $$;
