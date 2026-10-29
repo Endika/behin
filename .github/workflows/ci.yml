@@ -29,9 +29,29 @@ jobs:
       - run: npm run secret-scan -- --all
       - run: npm run build
 
+  sql:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm run test:sql
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+
   all-green:
     name: all-green
-    needs: [verify]
+    needs: [verify, sql]
     if: always()
     runs-on: ubuntu-latest
     steps:
