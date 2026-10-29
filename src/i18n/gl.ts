@@ -55,6 +55,9 @@ export const gl: Record<MessageKey, string> = {
   incompleteTitle: 'Ligazón incompleta',
   incompleteBody:
     'A ligazón cortouse ao copiala e fáltalle unha parte. Pide que ta volvan enviar e cópiaa enteira.',
+  damagedTitle: 'Ligazón danada',
+  damagedBody:
+    'Esta ligazón está incompleta: á nota lle falta o contrasinal. Pide que ta envíen de novo.',
   decryptTitle: 'Non se puido descifrar a nota',
   decryptBody:
     'A nota xa se borrou do servidor e esta ligazón non a pode abrir. Pídelle a quen ta enviou que cree outra.',

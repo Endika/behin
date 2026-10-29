@@ -56,6 +56,9 @@ export const en: Record<MessageKey, string> = {
   incompleteTitle: 'Incomplete link',
   incompleteBody:
     'The link was cut off when it was copied and part of it is missing. Ask for it again and copy the whole thing.',
+  damagedTitle: 'Link is damaged',
+  damagedBody:
+    'This link is incomplete: the note needs a password and the link does not say so. Ask the sender to send it again.',
   decryptTitle: 'The note could not be decrypted',
   decryptBody:
     'The note has already been deleted from the server and this link cannot open it. Ask the sender to create a new one.',

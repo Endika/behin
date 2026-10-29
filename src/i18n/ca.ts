@@ -55,6 +55,9 @@ export const ca: Record<MessageKey, string> = {
   incompleteTitle: 'Enllaç incomplet',
   incompleteBody:
     'L’enllaç s’ha tallat en copiar-lo i li falta una part. Demana que te’l tornin a enviar i copia’l sencer.',
+  damagedTitle: 'Enllaç malmès',
+  damagedBody:
+    'Aquest enllaç està incomplet: a la nota li falta la contrasenya. Demana que te’l tornin a enviar.',
   decryptTitle: 'No s’ha pogut desxifrar la nota',
   decryptBody:
     'La nota ja s’ha esborrat del servidor i aquest enllaç no la pot obrir. Demana a qui te la va enviar que en creï una altra.',

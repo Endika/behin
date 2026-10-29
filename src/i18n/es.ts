@@ -53,6 +53,9 @@ export const es = {
   incompleteTitle: 'Enlace incompleto',
   incompleteBody:
     'Al enlace le falta una parte; seguramente se cortó al copiarlo. Pide que te lo envíen de nuevo y cópialo entero.',
+  damagedTitle: 'Enlace dañado',
+  damagedBody:
+    'Este enlace está incompleto: a la nota le falta su contraseña. Pide que te lo envíen de nuevo.',
   decryptTitle: 'No se pudo descifrar la nota',
   decryptBody:
     'La nota ya se ha borrado del servidor y el enlace no puede abrirla. Pídele a quien te la envió que cree otra.',

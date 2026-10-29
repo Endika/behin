@@ -224,6 +224,17 @@ describe('reveal view', () => {
     expect(window.location.hash).toBe('')
   })
 
+  it('shows a damaged-link state, with no retry, when a password note is opened without its flag', async () => {
+    const { key, sealed } = await sealNote('guarded', 'right')
+    const id = await fake.create(sealed, 86400)
+    mount(buildLink('', id, key, false))
+    submit()
+    await vi.waitFor(() => expect(root.textContent).toContain(t('damagedTitle')))
+    expect(root.querySelector('button[type="submit"]')).toBeNull()
+    expect(window.location.hash).toBe('')
+    expect(opens).toBe(1)
+  })
+
   it('says gone, without burning anything, when the link key is altered', async () => {
     const { sealed } = await sealNote('guarded')
     const id = await fake.create(sealed, 86400)

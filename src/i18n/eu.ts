@@ -57,6 +57,9 @@ export const eu: Record<MessageKey, string> = {
   incompleteTitle: 'Esteka osatu gabe dago',
   incompleteBody:
     'Esteka moztu egin da kopiatzean, eta zati bat falta zaio. Eskatu berriro bidal diezazuten eta kopiatu osorik.',
+  damagedTitle: 'Esteka hondatuta dago',
+  damagedBody:
+    'Esteka hau osatu gabe dago: oharrak pasahitza behar du eta estekak ez du adierazten. Eskatu berriro bidal diezazuten.',
   decryptTitle: 'Ezin izan da oharra deszifratu',
   decryptBody:
     'Oharra dagoeneko zerbitzaritik ezabatu da, eta esteka honek ezin du ireki. Eskatu bidaltzaileari beste bat sortzeko.',
