@@ -211,7 +211,7 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
               password = ''
               passwordShown = false
               draw()
-              document.getElementById('note')?.focus()
+              container.querySelector<HTMLElement>('#note')?.focus()
             },
           },
           t('removePassword'),
@@ -226,7 +226,7 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
           onclick: () => {
             passwordOpen = true
             draw()
-            document.getElementById('password')?.focus()
+            container.querySelector<HTMLElement>('#password')?.focus()
           },
         },
         t('addPassword'),

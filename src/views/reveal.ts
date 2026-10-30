@@ -65,7 +65,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     busy = false
     if (phase === 'ready') {
       refresh()
-      const input = document.getElementById('password') as HTMLInputElement | null
+      const input = container.querySelector<HTMLInputElement>('#password')
       if (input) {
         input.value = ''
         input.focus()

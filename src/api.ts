@@ -19,6 +19,8 @@ export class NetworkError extends Error {
   }
 }
 
+export const CAPACITY_MESSAGE = 'capacity reached'
+
 export class CapacityError extends Error {
   constructor() {
     super('The service is at capacity')
@@ -76,7 +78,7 @@ export function createHttpApi(
       throw new NetworkError({ cause })
     }
     if (response.status >= 400) {
-      if (isRecord(data) && data.message === 'capacity reached') throw new CapacityError()
+      if (isRecord(data) && data.message === CAPACITY_MESSAGE) throw new CapacityError()
       throw new RequestError(response.status)
     }
     return data
