@@ -1,8 +1,9 @@
 import { CapacityError, NetworkError, RequestError, type TtlSeconds } from '@/api'
 import { MAX_NOTE_BYTES, sealNote, utf8Bytes } from '@/crypto'
-import { copyText, h, icon } from '@/dom'
+import { h, icon } from '@/dom'
 import { t, type MessageKey } from '@/i18n'
 import { buildLink } from '@/link'
+import { copyButton } from './copy'
 import type { View, ViewDeps } from './types'
 
 const TTLS: readonly TtlSeconds[] = [600, 3600, 86400, 604800]
@@ -81,23 +82,8 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
       'aria-labelledby': 'link-label',
     })
     block.textContent = done.link
-    const copyLabel = h('span', {}, t('copyLink'))
-    const copyBtn = h('button', { type: 'button', class: 'primary' }, icon('copy'), copyLabel)
     const note = h('p', { class: 'hint', role: 'status' })
-    let timer: ReturnType<typeof setTimeout> | undefined
-    copyBtn.addEventListener('click', async () => {
-      const ok = await copyText(done.link, block)
-      clearTimeout(timer)
-      copyLabel.textContent = ok ? t('copied') : t('copyLink')
-      copyBtn.replaceChildren(icon(ok ? 'check' : 'copy'), copyLabel)
-      note.textContent = ok ? '' : t('copyFailed')
-      if (ok) {
-        timer = setTimeout(() => {
-          copyLabel.textContent = t('copyLink')
-          copyBtn.replaceChildren(icon('copy'), copyLabel)
-        }, 2000)
-      }
-    })
+    const copyBtn = copyButton(done.link, block, note, 'copyLink', 'primary')
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
