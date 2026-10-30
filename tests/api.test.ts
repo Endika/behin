@@ -1,5 +1,13 @@
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CapacityError, NetworkError, RequestError, createHttpApi, type TtlSeconds } from '@/api'
+import {
+  CAPACITY_MESSAGE,
+  CapacityError,
+  NetworkError,
+  RequestError,
+  createHttpApi,
+  type TtlSeconds,
+} from '@/api'
 import { sealNote, toBase64, unlock } from '@/crypto'
 import { createFakeApi } from './fake-api'
 
@@ -233,5 +241,16 @@ describe('fake api', () => {
     const result = await api.open(id, unlocked.gate, unlocked.auth)
     if (result.status !== 'ok') throw new Error('expected ok')
     expect(await unlocked.decrypt(result.ciphertext, result.iv)).toBe('mensaje secreto')
+  })
+})
+
+describe('capacity message', () => {
+  it('is raised by a migration', () => {
+    const dir = 'supabase/migrations'
+    const sql = readdirSync(dir)
+      .filter((file) => file.endsWith('.sql'))
+      .map((file) => readFileSync(`${dir}/${file}`, 'utf8'))
+      .join('\n')
+    expect(sql).toContain(`raise exception '${CAPACITY_MESSAGE}'`)
   })
 })
