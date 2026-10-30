@@ -85,4 +85,12 @@ export const gl: Record<MessageKey, string> = {
   framedBody: 'Pola túa seguridade, behin non se executa dentro doutra páxina.',
   framedOpen: 'Abrir ligazón',
   howSource: 'Código fonte en GitHub',
+  privacyTitle: 'Privacidade',
+  privacyStored:
+    'Só se garda a nota cifrada, o seu IV, dúas pegadas SHA-256, os intentos e a caducidade. Ninguén pode lela sen a ligazón, nin sequera quen mantén behin, e bórrase ao lela ou ao caducar.',
+  privacyProcessors:
+    'A base de datos está en Supabase (Londres) e a páxina sérvea GitHub Pages. Os dous poden rexistrar a túa IP nos seus rexistros técnicos.',
+  privacyNoCookies:
+    'Non hai contas, cookies nin analítica. Este navegador só lembra o idioma que escollas.',
+  privacyContact: 'Para dúbidas ou peticións, abre unha issue en GitHub.',
 }

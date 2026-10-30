@@ -87,4 +87,12 @@ export const en: Record<MessageKey, string> = {
   framedBody: 'For your safety, behin does not run inside another page.',
   framedOpen: 'Open link',
   howSource: 'Source code on GitHub',
+  privacyTitle: 'Privacy',
+  privacyStored:
+    'Only the encrypted note, its IV, two SHA-256 fingerprints, the attempts and the expiry are stored. Nobody can read it without the link, not even whoever runs behin, and it is deleted when read or when it expires.',
+  privacyProcessors:
+    'The database runs on Supabase (London) and the page is served by GitHub Pages. Both may record your IP in their technical logs.',
+  privacyNoCookies:
+    'No accounts, cookies or analytics. This browser only remembers the language you choose.',
+  privacyContact: 'For questions or requests, open an issue on GitHub.',
 }

@@ -86,4 +86,12 @@ export const ca: Record<MessageKey, string> = {
   framedBody: 'Per seguretat, behin no s’executa dins d’una altra pàgina.',
   framedOpen: 'Obre l’enllaç',
   howSource: 'Codi font a GitHub',
+  privacyTitle: 'Privadesa',
+  privacyStored:
+    'Només es desa la nota xifrada, el seu IV, dues empremtes SHA-256, els intents i la caducitat. Ningú no la pot llegir sense l’enllaç, ni tan sols qui manté behin, i s’esborra en llegir-la o en caducar.',
+  privacyProcessors:
+    'La base de dades és a Supabase (Londres) i la pàgina la serveix GitHub Pages. Tots dos poden registrar la teva IP als seus registres tècnics.',
+  privacyNoCookies:
+    'No hi ha comptes, galetes ni analítica. Aquest navegador només recorda l’idioma que triïs.',
+  privacyContact: 'Per a dubtes o peticions, obre un issue a GitHub.',
 }

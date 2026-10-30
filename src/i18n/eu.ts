@@ -88,4 +88,12 @@ export const eu: Record<MessageKey, string> = {
   framedBody: 'Zure segurtasunerako, behin ez da beste orri baten barruan exekutatzen.',
   framedOpen: 'Ireki esteka',
   howSource: 'Iturburu-kodea GitHub-en',
+  privacyTitle: 'Pribatutasuna',
+  privacyStored:
+    'Ohar zifratua, haren IVa, SHA-256 bi aztarna, saiakerak eta iraungitzea baino ez dira gordetzen. Inork ezin du irakurri estekarik gabe, ezta behin kudeatzen duenak ere, eta irakurtzean edo iraungitzean ezabatzen da.',
+  privacyProcessors:
+    'Datu-basea Supabasen dago (Londres) eta orria GitHub Pagesek zerbitzatzen du. Biek zure IPa erregistra dezakete beren erregistro teknikoetan.',
+  privacyNoCookies:
+    'Ez dago konturik, cookierik ezta analitikarik ere. Nabigatzaile honek aukeratzen duzun hizkuntza baino ez du gogoratzen.',
+  privacyContact: 'Zalantzak edo eskaerak badituzu, ireki issue bat GitHub-en.',
 }
