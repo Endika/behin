@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Endika/behin/compare/v1.0.1...v1.1.0) (2026-10-30)
+
+
+### Features
+
+* add a privacy notice ([3481803](https://github.com/Endika/behin/commit/3481803f3eaf173bf0f18f2d972fe91fb284f6e0))
+
 ## [1.0.1](https://github.com/Endika/behin/compare/v1.0.0...v1.0.1) (2026-10-29)
 
 
