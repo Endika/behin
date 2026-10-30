@@ -1,20 +1,17 @@
-import { NetworkError, RequestError } from '@/api'
 import { unlock } from '@/crypto'
 import { h, icon } from '@/dom'
 import { t, type MessageKey } from '@/i18n'
 import { parseFragment } from '@/link'
 import { copyButton } from './copy'
+import { failureError, nextStep, type Phase, type RevealError } from './reveal-flow'
 import type { View, ViewDeps } from './types'
-
-type Phase =
-  'incomplete' | 'damaged' | 'ready' | 'revealed' | 'gone' | 'destroyed' | 'undecryptable'
 
 export function revealView(container: HTMLElement, deps: ViewDeps): View {
   const link = parseFragment(deps.location.hash)
   let phase: Phase = link ? 'ready' : 'incomplete'
   let password = ''
   let busy = false
-  let error: { key: MessageKey; params?: Record<string, number> } | null = null
+  let error: RevealError | null = null
   let plaintext = ''
   let animate = false
   let disposed = false
@@ -36,17 +33,6 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
   }
   window.addEventListener('pagehide', forgetOnLeave)
 
-  function fail(cause: unknown): void {
-    error = {
-      key:
-        cause instanceof NetworkError
-          ? 'errNetwork'
-          : cause instanceof RequestError
-            ? 'errRequest'
-            : 'errGeneric',
-    }
-  }
-
   async function reveal(): Promise<void> {
     const api = deps.api
     if (busy || !link || !api) return
@@ -58,34 +44,23 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
       const unlocked = await unlock(link.key, link.hasPassword ? password : undefined)
       const result = await api.open(link.id, unlocked.gate, unlocked.auth)
       if (disposed) return
+      const step = nextStep(result, link.hasPassword)
+      if (step.wipe) wipeFragment()
       if (result.status === 'ok') {
-        wipeFragment()
         try {
           plaintext = await unlocked.decrypt(result.ciphertext, result.iv)
           phase = 'revealed'
         } catch {
           phase = 'undecryptable'
         }
-      } else if (result.status === 'wrong') {
-        if (!link.hasPassword) {
-          wipeFragment()
-          phase = 'damaged'
-        } else if (result.remaining === 0) {
-          wipeFragment()
-          phase = 'destroyed'
-        } else {
-          password = ''
-          error = {
-            key: result.remaining === 1 ? 'wrongPasswordOne' : 'wrongPassword',
-            params: { n: result.remaining },
-          }
-        }
+      } else if (step.next === 'ready') {
+        password = ''
+        error = step.error
       } else {
-        wipeFragment()
-        phase = 'gone'
+        phase = step.next
       }
     } catch (cause) {
-      fail(cause)
+      error = failureError(cause)
     }
     if (disposed) return
     busy = false
