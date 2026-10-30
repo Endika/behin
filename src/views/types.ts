@@ -1,7 +1,7 @@
 import type { NotesApi } from '@/api'
 
 export interface ViewDeps {
-  api: NotesApi | null
+  api: NotesApi
   location: Location
   history: History
 }

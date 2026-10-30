@@ -37,15 +37,14 @@ export function createView(container: HTMLElement, deps: ViewDeps): View {
   const isInvalid = (): boolean => isEmpty() || isOver() || hasNull()
 
   async function submit(): Promise<void> {
-    const api = deps.api
-    if (busy || !api || isInvalid()) return
+    if (busy || isInvalid()) return
     busy = true
     error = null
     refresh()
     try {
       const usedPassword = passwordOpen && password.length > 0 ? password : undefined
       const { key, sealed } = await sealNote(text, usedPassword)
-      const id = await api.create(sealed, ttl)
+      const id = await deps.api.create(sealed, ttl)
       if (disposed) return
       const base = deps.location.origin + deps.location.pathname
       result = {
