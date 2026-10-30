@@ -84,6 +84,14 @@ export const es = {
   framedBody: 'Por seguridad, behin no funciona dentro de otra página.',
   framedOpen: 'Abrir enlace',
   howSource: 'Código fuente en GitHub',
+  privacyTitle: 'Privacidad',
+  privacyStored:
+    'Solo se guarda la nota cifrada, su IV, dos huellas SHA-256, los intentos y la caducidad. Nadie puede leerla sin el enlace, tampoco quien mantiene behin, y se borra al leerla o al caducar.',
+  privacyProcessors:
+    'La base de datos está en Supabase (Londres) y la página la sirve GitHub Pages. Los dos pueden registrar tu IP en sus registros técnicos.',
+  privacyNoCookies:
+    'No hay cuentas, cookies ni analítica. Este navegador solo recuerda el idioma que elijas.',
+  privacyContact: 'Para dudas o peticiones, abre un issue en GitHub.',
 }
 
 export type MessageKey = keyof typeof es

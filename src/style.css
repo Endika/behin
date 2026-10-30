@@ -590,6 +590,13 @@ summary:hover {
   gap: 4px;
 }
 
+.how h3 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--s-fg);
+}
+
 .how a {
   color: var(--s-fg);
   text-underline-offset: 3px;

@@ -407,3 +407,15 @@ describe('language', () => {
     expect(document.documentElement.lang).toBe('ca')
   })
 })
+
+describe('privacy notice', () => {
+  it('states what is stored, who processes it and that there are no cookies', () => {
+    mount()
+    const how = $<HTMLElement>('.how')
+    expect(how.querySelector('h3')?.textContent).toBe(t('privacyTitle'))
+    expect(how.textContent).toContain(t('privacyStored'))
+    expect(how.textContent).toContain('Supabase')
+    expect(how.textContent).toContain('GitHub Pages')
+    expect(how.textContent).toContain(t('privacyNoCookies'))
+  })
+})

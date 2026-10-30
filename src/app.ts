@@ -95,6 +95,14 @@ export function mountApp(root: HTMLElement, deps: AppDeps): () => void {
               ] as const
             ).map((key) => h('li', {}, t(key))),
           ),
+          h('h3', {}, t('privacyTitle')),
+          h(
+            'ul',
+            {},
+            ...(
+              ['privacyStored', 'privacyProcessors', 'privacyNoCookies', 'privacyContact'] as const
+            ).map((key) => h('li', {}, t(key))),
+          ),
           h('a', { href: SOURCE_URL, rel: 'noopener noreferrer' }, t('howSource')),
         ),
       ),
