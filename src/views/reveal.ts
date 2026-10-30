@@ -1,8 +1,9 @@
 import { NetworkError, RequestError } from '@/api'
 import { unlock } from '@/crypto'
-import { copyText, h, icon } from '@/dom'
+import { h, icon } from '@/dom'
 import { t, type MessageKey } from '@/i18n'
 import { parseFragment } from '@/link'
+import { copyButton } from './copy'
 import type { View, ViewDeps } from './types'
 
 type Phase =
@@ -185,23 +186,8 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
   function drawRevealed(): HTMLElement {
     const code = h('pre', { class: 'code', id: 'note' })
     code.textContent = plaintext
-    const label = h('span', {}, t('copy'))
     const status = h('p', { class: 'hint', role: 'status' })
-    const button = h('button', { type: 'button', class: 'copy' }, icon('copy'), label)
-    let timer: ReturnType<typeof setTimeout> | undefined
-    button.addEventListener('click', async () => {
-      const ok = await copyText(plaintext, code)
-      clearTimeout(timer)
-      label.textContent = ok ? t('copied') : t('copy')
-      button.replaceChildren(icon(ok ? 'check' : 'copy'), label)
-      status.textContent = ok ? '' : t('copyFailed')
-      if (ok) {
-        timer = setTimeout(() => {
-          label.textContent = t('copy')
-          button.replaceChildren(icon('copy'), label)
-        }, 2000)
-      }
-    })
+    const button = copyButton(plaintext, code, status, 'copy', 'copy')
     return h(
       'div',
       { class: animate ? 'stack rise' : 'stack' },
