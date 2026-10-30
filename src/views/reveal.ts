@@ -34,15 +34,14 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
   window.addEventListener('pagehide', forgetOnLeave)
 
   async function reveal(): Promise<void> {
-    const api = deps.api
-    if (busy || !link || !api) return
+    if (busy || !link) return
     if (link.hasPassword && password.length === 0) return
     busy = true
     error = null
     refresh()
     try {
       const unlocked = await unlock(link.key, link.hasPassword ? password : undefined)
-      const result = await api.open(link.id, unlocked.gate, unlocked.auth)
+      const result = await deps.api.open(link.id, unlocked.gate, unlocked.auth)
       if (disposed) return
       const step = nextStep(result, link.hasPassword)
       if (step.wipe) wipeFragment()
@@ -94,7 +93,7 @@ export function revealView(container: HTMLElement, deps: ViewDeps): View {
     const button = h('button', { type: 'submit', class: 'primary' })
     const banner = h('div', { class: 'banner-slot' })
     function paint(): void {
-      button.disabled = busy || !deps.api || (!!link?.hasPassword && password.length === 0)
+      button.disabled = busy || (!!link?.hasPassword && password.length === 0)
       button.setAttribute('aria-busy', String(busy))
       button.replaceChildren(
         busy ? icon('spinner', 'spin') : '',
