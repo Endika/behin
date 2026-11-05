@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/Endika/behin/compare/v1.1.0...v1.1.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **deps:** override minimatch to ^11.0.1 for GHSA-g3hv-75wg-m249 ([395b40a](https://github.com/Endika/behin/commit/395b40a688863043d94390775ec81c335efdd289))
+
 ## [1.1.0](https://github.com/Endika/behin/compare/v1.0.1...v1.1.0) (2026-10-30)
 
 
