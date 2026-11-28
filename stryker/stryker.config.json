@@ -1,0 +1,13 @@
+{
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner", "./stryker/noise-ignorer.mjs"],
+  "ignorers": ["noise"],
+  "mutate": ["src/**/*.ts", "!src/**/*.d.ts", "!src/main.ts", "!src/i18n/{en,es,eu,ca,gl}.ts"],
+  "reporters": ["clear-text", "json"],
+  "jsonReporter": { "fileName": "reports/mutation.json" },
+  "clearTextReporter": { "logTests": false },
+  "coverageAnalysis": "perTest",
+  "disableBail": true,
+  "concurrency": 4,
+  "tempDirName": ".stryker-tmp"
+}
